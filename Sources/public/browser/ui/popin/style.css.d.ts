@@ -1,0 +1,40 @@
+// This file is generated automatically
+export type IIndexableStyle = {[key in keyof IStyleCss]: string;};
+export interface IStyleCss {
+  'b-popin': string;
+  'step1': string;
+  'step2': string;
+  'firefox1': string;
+  'firefox2': string;
+  'chrome1': string;
+  'chrome2': string;
+  'b-popin__header': string;
+  'b-popin__header__title': string;
+  'b-popin__content': string;
+  'b-pe': string;
+  'b-pe-img': string;
+  'b-pe-img__image': string;
+  'b-pe-img__image__placeholder': string;
+  'b-pe__c__placeholder': string;
+  'b-pe__c__placeholder__h': string;
+  'b-pe__c__placeholder__t': string;
+  'b-pe__c__placeholder__l': string;
+  'b-pe__c': string;
+  'b-pe__c__t': string;
+  'b-pe__c__b': string;
+  'b-btn': string;
+  'b-btn-unsub': string;
+  'b-l': string;
+  'spin': string;
+  'b-popin__loading': string;
+  'b-reactivate': string;
+  'b-activate': string;
+  'step1-detail': string;
+  'step2-detail': string;
+  'icon-inline--info': string;
+  'b-reacative': string;
+  'chrome': string;
+  'firefox': string;
+}
+declare const styles: IStyleCss;
+export = styles;

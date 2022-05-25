@@ -1,0 +1,101 @@
+/*
+Reset b-switch
+*/
+.b-switch{
+    line-height:1;
+}
+
+.b-switch, .b-switch div, .b-switch span{
+    margin:0;
+    padding:0;
+    border:0;
+    outline:0;
+    font-size:100%;
+    vertical-align:baseline;
+    background:transparent;
+}
+
+.b-switch input{
+    vertical-align:middle;
+}
+
+/*switch*/
+.b-switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 16px;
+}
+
+.b-switch input {
+  display: none;
+}
+
+.b-switch .b-switch__slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ef456a;
+  -webkit-transition: .4s;
+  transition: .4s;
+  border-radius: 100px;
+}
+
+.b-switch .b-switch__slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #fff;
+  -webkit-transition: .4s;
+  transition: .4s;
+  border-radius: 100px;
+  box-shadow: 0px 2px 6px 0px rgba(107, 45, 59, 0.62), 0px 1px 0px 0px #d53356;
+}
+
+.b-switch  input:checked + .b-switch__slider {
+  background-color: #4ec45f;
+}
+
+.b-switch .b-switch--disable {
+  background-color: #dcdde5;
+}
+
+.b-switch .b-switch--disable:before {
+  opacity: 0.5;
+}
+
+.b-switch  input:checked + .b-switch__slider:before {
+  -webkit-transform: translateX(16px);
+  -ms-transform: translateX(16px);
+  transform: translateX(16px);
+  box-shadow: 0px 2px 6px 0px rgba(114, 132, 158, 0.62), 0px 1px 0px 0px #5daf58;
+}
+
+.b-switch .b-l{
+  display: none;
+  border-radius: 50%;
+  width: 17px;
+  height: 17px;
+  border: 0.15rem solid rgba(0,0,0,0.1);
+  border-top-color: #3E475C;
+  margin: 0 auto;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  from {transform:rotate(0deg);}
+  to {transform:rotate(360deg);}
+}
+.b-switch .b-switch__loading .b-l{
+  display: inline-block;
+}
+
+.b-switch .b-switch__loading .b-switch__slider{
+  display: none;
+}

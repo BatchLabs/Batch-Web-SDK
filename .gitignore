@@ -1,0 +1,19 @@
+.DS_Store
+*.swp
+*.orig
+build/*.js
+build/*.map
+doc/
+web-api-reference/
+node_modules
+npm-debug.log
+yarn-error.log
+tmpdeploy/
+eslint_report.json
+.coverage-report/
+
+# Yarn
+.yarn/*
+#!.yarn/cache
+!.yarn/releases
+!.yarn/plugins
