@@ -1,5 +1,8 @@
 /* eslint-env node */
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sdkPackage = require("./package.json");
+
 module.exports = {
   globals: {
     BATCH_STATIC_HOST: "//test.secure",
@@ -8,7 +11,7 @@ module.exports = {
     BATCH_ICONS_URL: "https://icons.secure",
     BATCH_ENV: "test",
     BATCH_IS_WEBPACK_DEV_SERVER: "0",
-    BATCH_SDK_VERSION: "3.3.0",
+    BATCH_SDK_VERSION: sdkPackage.version,
     BATCH_SDK_MAJOR_VERSION: "3",
   },
   testPathIgnorePatterns: ["ui-tests", "node_modules"],

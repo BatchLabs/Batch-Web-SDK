@@ -15,6 +15,9 @@ type ResponseDiagnostic = {
   error?: string;
 };
 
+const PERMISSION_CALLBACK_WORKAROUND_INTERVAL = 500; // ms
+const PERMISSION_CALLBACK_WORKAROUND_ATTEMPTS = 80; // About 40 seconds with a 500ms interval
+
 /**
  * SDK Meant to be used on HTTPS websites
  */
@@ -96,6 +99,14 @@ export class SafariSDK extends BaseSDK implements ISDK {
 
   // ----------------------------------->
 
+  protected sanitizeSubscription(subscription: unknown): unknown {
+    if (typeof subscription === "string" || subscription instanceof String) {
+      return subscription;
+    }
+    Log.debug(logModuleName, "Invalid subscription, sanitizing. (", subscription + ")");
+    return;
+  }
+
   // Synchronizes Safari's remote subscription status with the SDK
   // - Tell the server to unsub if the user removed permission
   // - Handle migration from another provider or loss of local data by automatically resubscribing
@@ -152,22 +163,69 @@ export class SafariSDK extends BaseSDK implements ISDK {
   };
 
   private requestSafariPermission = async (): Promise<string | null> => {
-    return new Promise(resolve => {
-      if ("safari" in window && "pushNotification" in window.safari && this.websitePushID) {
-        Log.debug(logModuleName, "Requesting safari permission");
+    if ("safari" in window && "pushNotification" in window.safari && this.websitePushID) {
+      const websitePushID = this.websitePushID;
+      const currentPermission = window.safari.pushNotification.permission(websitePushID);
+      if (currentPermission.permission !== Permission.Default) {
+        return this.getSubscriptionTokenAndPrintStatus(currentPermission);
+      }
+
+      // See waitUntilUserRepliedToPermissionPrompt's implementation for more info
+      const callbackWorkaround = this.waitUntilUserRepliedToPermissionPrompt(websitePushID);
+
+      Log.debug(logModuleName, "Requesting safari permission");
+      const safariCallbackPromise = new Promise<string | null>(resolve => {
         window.safari.pushNotification.requestPermission(
           `${SAFARI_WS_URL}/${this.config.apiKey}`,
-          this.websitePushID,
+          websitePushID,
           { installID: this.installID },
           permission => {
+            callbackWorkaround.cancel();
             Log.debug(logModuleName, "Got safari permission callback: ", JSON.stringify(permission));
             resolve(this.getSubscriptionTokenAndPrintStatus(permission));
           }
         );
-      } else {
-        resolve(null);
-      }
+      });
+
+      return Promise.race([safariCallbackPromise, callbackWorkaround.promise]);
+    } else {
+      return null;
+    }
+  };
+
+  // Return a promise that resolves once the user has granted or denied the push permission
+  // by using a pull-based approach.
+  private waitUntilUserRepliedToPermissionPrompt = (websitePushID: string): { cancel: () => void; promise: Promise<string | null> } => {
+    let shouldCancel = false;
+    const cancel = (): void => {
+      shouldCancel = true;
+    };
+    const promise: Promise<string | null> = new Promise(resolve => {
+      // Safari sometimes doesn't call us back on requestPermission, ever.
+      // We work around this by starting a background timer that will check for the
+      // permission as that API works as expected. We won't wait forever either.
+      // See sc-44046 & sc-32581
+      let permissionAttemptsLeft = PERMISSION_CALLBACK_WORKAROUND_ATTEMPTS;
+      const handle = setInterval(() => {
+        if (shouldCancel || permissionAttemptsLeft <= 0) {
+          // Do not resolve nor reject the Promise as it will end a race sooner than it should be.
+          clearInterval(handle);
+          return;
+        }
+        permissionAttemptsLeft--;
+        const permission = window.safari.pushNotification.permission(websitePushID);
+        if (permission.permission !== Permission.Default) {
+          Log.debug(logModuleName, "Got safari permission using pull: ", JSON.stringify(permission));
+          clearInterval(handle);
+          resolve(this.getSubscriptionTokenAndPrintStatus(permission));
+        }
+      }, PERMISSION_CALLBACK_WORKAROUND_INTERVAL);
     });
+
+    return {
+      cancel,
+      promise,
+    };
   };
 
   private getSubscriptionTokenAndPrintStatus = (cachedPermission?: SafariPermissionResult): string | null => {

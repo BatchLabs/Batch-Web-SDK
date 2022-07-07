@@ -2,7 +2,6 @@
 // @ts-nocheck
 
 jest.mock("com.batch.shared/persistence/profile");
-jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/session");
 
 import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";

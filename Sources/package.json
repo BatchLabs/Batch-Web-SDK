@@ -1,6 +1,23 @@
 {
+  "license" : "Proprietary",
+  "majorVersion" : "3",
+  "name" : "batch-webpush-sdk",
   "private" : true,
-  "version" : "3.3.0",
+  "version" : "3.3.1",
+  "main" : "index.js",
+  "scripts" : {
+    "build" : "yarn type-check && yarn build-webpack",
+    "doc" : "cd src\/public\/types\/ && typedoc --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
+    "test" : "jest",
+    "lint" : "eslint --no-fix \"src\/**\"",
+    "type-check" : "tsc --build",
+    "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
+    "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
+  },
+  "packageManager" : "yarn@3.2.0",
+  "repository" : {
+
+  },
   "dependencies" : {
     "babel-eslint" : "^10.1.0",
     "@babel\/plugin-proposal-private-methods" : "^7.14.5",
@@ -56,22 +73,5 @@
     "web-push" : "^3.4.5",
     "cross-env" : "^7.0.3",
     "typescript" : "4.2"
-  },
-  "majorVersion" : "3",
-  "scripts" : {
-    "build" : "yarn type-check && yarn build-webpack",
-    "doc" : "cd src\/public\/types\/ && typedoc --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
-    "test" : "jest",
-    "lint" : "eslint --no-fix \"src\/**\"",
-    "type-check" : "tsc --build",
-    "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
-    "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
-  },
-  "repository" : {
-
-  },
-  "license" : "Proprietary",
-  "name" : "batch-webpush-sdk",
-  "main" : "index.js",
-  "packageManager" : "yarn@3.2.0"
+  }
 }

@@ -126,6 +126,18 @@ export class StandardSDK extends BaseSDK implements ISDK {
     return this.worker != null ? Promise.resolve(this.worker) : Promise.reject("worker is null");
   }
 
+  protected sanitizeSubscription(subscription: unknown): unknown {
+    if (
+      typeof subscription === "object" &&
+      subscription !== null &&
+      typeof (subscription as PushSubscriptionJSON)["endpoint"] === "string"
+    ) {
+      return subscription;
+    }
+    Log.debug(logModuleName, "Invalid subscription, sanitizing. (", subscription + ")");
+    return;
+  }
+
   //#region Public API
 
   public async refreshServiceWorkerRegistration(): Promise<void> {

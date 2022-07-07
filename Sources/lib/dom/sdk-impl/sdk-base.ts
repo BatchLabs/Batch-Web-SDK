@@ -182,6 +182,8 @@ export default abstract class BaseSDK implements ISDK {
       .getParameterValue<boolean>(keysByProvider.profile.Subscribed)
       .then(s => (this.lastSubscribed = s === true));
 
+    this.lastSubscription = this.sanitizeSubscription(this.lastSubscription);
+
     await Promise.all([stPromise, sdPromise]);
     this.lastPermission = await this.readPermission();
     this.lastState = {
@@ -439,6 +441,16 @@ export default abstract class BaseSDK implements ISDK {
   }
 
   /**
+   * Checks whether the subscription matches the expected format and if not, sanitizes it.
+   * Can return undefined if the subscription is inconsistent with the environment (ex: APNS subscription in a WPP environment).
+   *
+   * Should be overriden by implementations.
+   */
+  protected sanitizeSubscription(subscription: unknown): unknown {
+    return subscription;
+  }
+
+  /**
    * Read the subcribed flag and check if something changed
    */
   public async readAndCheckSubscribed(): Promise<boolean> {
@@ -458,9 +470,8 @@ export default abstract class BaseSDK implements ISDK {
    * Read the subscription in database and check if something changed
    */
   public async readAndCheckSubscription(): Promise<unknown> {
-    const currentSubscription = await (
-      await this.getParameterStore()
-    ).getParameterValue<PushSubscriptionJSON>(keysByProvider.profile.Subscription);
+    let currentSubscription = await (await this.getParameterStore()).getParameterValue<unknown>(keysByProvider.profile.Subscription);
+    currentSubscription = this.sanitizeSubscription(currentSubscription);
     const lastSubscription = this.lastSubscription;
 
     if (this.hasSubscriptionChanged(currentSubscription, lastSubscription)) {
