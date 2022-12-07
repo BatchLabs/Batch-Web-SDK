@@ -49,10 +49,10 @@ class NativeRequest {
     const dismissed = +(window.localStorage.getItem(LSKEY) as string);
     const now = Math.round(new Date().getTime() / 1000);
 
-    if (force || !dismissed || this.conf.backoffDuration === 0 || now - dismissed > this.conf.backoffDuration) {
-      if (Notification.permission === Permission.Granted) {
-        this.api.subscribe();
-      } else if (Notification.permission !== Permission.Denied) {
+    if (Notification.permission === Permission.Granted) {
+      this.api.subscribe();
+    } else if (Notification.permission !== Permission.Denied) {
+      if (force || !dismissed || this.conf.backoffDuration === 0 || now - dismissed > this.conf.backoffDuration) {
         const permission = await Notification.requestPermission();
         if (permission) {
           // No matter what the user answered, write the last shown on promise

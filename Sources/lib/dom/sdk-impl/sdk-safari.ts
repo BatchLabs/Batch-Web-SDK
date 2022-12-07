@@ -2,8 +2,9 @@ import { SAFARI_WS_URL } from "com.batch.shared/../../config";
 import { Log } from "com.batch.shared/logger";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
 
-import { ISDK, ISDKFactory, Permission } from "./sdk";
+import { ISDK, Permission } from "./sdk";
 import BaseSDK from "./sdk-base";
+import { ISDKFactory } from "./sdk-factory";
 
 const logModuleName = "sdk-safari";
 import { Timeout } from "com.batch.shared/helpers/timed-promise";

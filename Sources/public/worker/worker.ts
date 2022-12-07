@@ -49,10 +49,6 @@ const getLastKnownGoodConfiguration = (): Promise<IPrivateBatchSDKConfiguration>
         throw new Error("Configuration error: 'apiKey' is mandatory");
       }
 
-      if (!config.subdomain) {
-        throw new Error("Configuration error: 'subdomain' is mandatory");
-      }
-
       // Not in dev, but make it mandatory so the dev doesn't forget it
       if (!config.authKey) {
         throw new Error("Configuration error: 'authKey' is mandatory");
@@ -122,10 +118,6 @@ const pushEventReceived = (event: PushEvent): Promise<void> => {
         Log.info(moduleName, "Notification event is a Batch push", event);
         return NotificationReceiver.getInstance(ParameterStore.getInstance())
           .then(receiver => {
-            if (!receiver.shouldDisplayNotifications()) {
-              Log.info(moduleName, "User is not registred", event);
-              return Promise.resolve();
-            }
             const notificationData = notificationPayload != null ? receiver.getNotificationData(notificationPayload) : null;
             if (notificationData) {
               return self.registration

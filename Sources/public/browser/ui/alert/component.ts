@@ -19,6 +19,8 @@ const selectors = {
   buttons: "a." + style["b-btn"],
   container: "div." + style["b-alert-container"],
   img: "img." + style["b-img"],
+  buttonSpacer: "div." + style["b-btn-spacer"],
+  extraButton: "a." + style["b-btn-extra"],
   negativeButton: "a." + style["b-btn-no"],
   positiveButton: "a." + style["b-btn-yes"],
   text: "span." + style["b-t"],
@@ -30,6 +32,12 @@ export interface IAlertButtonStyle {
   hoverBackgroundColor?: string;
   fontSize?: string;
   shadow?: boolean;
+}
+
+export interface IExtraButtonConfig {
+  label: string;
+  link: string;
+  style?: IAlertButtonStyle;
 }
 
 export interface IAlertConfig {
@@ -51,6 +59,7 @@ export interface IAlertConfig {
   positiveBtnStyle?: IAlertButtonStyle;
   negativeBtnStyle?: IAlertButtonStyle;
   popin?: IPopinConfig;
+  extraBtn?: IExtraButtonConfig;
 }
 
 enum VerticalAlignment {
@@ -197,6 +206,8 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
       this.applyButtonStyle("negative", this.conf.negativeBtnStyle, this.container.selectOne(selectors.negativeButton));
     }
 
+    this.drawExtraButton();
+
     this.container.selectOne(selectors.negativeButton).listenTo("click", (e: Event) => {
       e.preventDefault();
       this.hide();
@@ -222,6 +233,33 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
       })
       // finally append this element
       .prepend(div, false);
+  }
+
+  private drawExtraButton(): void {
+    if (this.conf.extraBtn !== null && typeof this.conf.extraBtn === "object") {
+      const extraBtnConf = this.conf.extraBtn;
+      // Bail if we don't have a valid label or link
+      if (typeof extraBtnConf.label !== "string" || extraBtnConf.label.length === 0) {
+        return;
+      }
+      if (typeof extraBtnConf.link !== "string" || extraBtnConf.link.length === 0) {
+        return;
+      }
+
+      if (extraBtnConf.style !== null && typeof extraBtnConf.style === "object") {
+        this.applyButtonStyle("extra", extraBtnConf.style, this.container.selectOne(selectors.extraButton));
+      }
+
+      this.container
+        .selectOne(selectors.extraButton)
+        .removeClass(style["b-hidden"])
+        .style({
+          fontSize: null,
+        })
+        .text(extraBtnConf.label)
+        .href(extraBtnConf.link);
+      this.container.selectOne(selectors.buttonSpacer).removeClass(style["b-hidden"]);
+    }
   }
 
   private applyButtonStyle(btnName: string, btnStyle: IAlertButtonStyle, elem: DOMElement): void {

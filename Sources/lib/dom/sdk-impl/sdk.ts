@@ -135,21 +135,3 @@ export interface ISDK {
 
   getUserTagCollections(): Promise<{ [key: string]: string[] }>;
 }
-
-/**
- * The factory used to create a uniq ISDK instance.
- * The instance is wrapped with a promise to always ensure that everything is correctly initialized.
- */
-export interface ISDKFactory {
-  /**
-   * Setup a new ISDK instance (if not already done)
-   * and returns the newly uniq created instance.
-   */
-  setup(config: object): Promise<ISDK>;
-
-  /**
-   * Return the uniq instance created by the factory.
-   * Always call setup before or the promise will be rejected.
-   */
-  getInstance(): Promise<ISDK>;
-}

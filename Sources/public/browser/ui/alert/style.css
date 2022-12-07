@@ -91,6 +91,11 @@ div.b-alert {
   --batch-negativebtn-bgcolor: transparent;
   --batch-negativebtn-hover_bgcolor: rgba(0, 0, 0, 0.05);
   --batch-negativebtn-fontsize: 14px;
+
+  --batch-extrabtn-textcolor: black;
+  --batch-extrabtn-bgcolor: transparent;
+  --batch-extrabtn-hover_bgcolor: transparent;
+  --batch-extrabtn-fontsize: 12px;
 }
 
 .b-alert-container__left div.b-alert,
@@ -111,14 +116,44 @@ div.b-btn-container {
   justify-content: flex-end;
 }
 
+/* Use an overly specific selector to make sure display:none takes precedence hover the buttons' display:block */
+.b-alert .b-btn-container .b-hidden {
+  display: none;
+}
+
 .b-alert .b-btn,
 .b-alert .b-btn:hover {
+  padding: 10px 20px;
   text-decoration: none;
   display: block;
   text-align: center;
-  padding: 10px 20px;
   border-radius: 5px;
   transition: background-color 0.5s ease-out;
+}
+
+.b-alert .b-btn-spacer {
+  flex-grow: 1;
+}
+
+.b-alert .b-btn-container .b-btn-extra {
+  padding: 10px 0px;
+  color: black;
+  color: var(--batch-extrabtn-textcolor);
+  text-decoration: underline;
+  font-size: 11px;
+  font-size: var(--batch-extrabtn-fontsize);
+  background: transparent;
+  background: var(--batch-extrabtn-bgcolor);
+  margin-right: 15px;
+  margin-inline-end: 15px;
+  margin-inline-start: 0px;
+  -webkit-margin-end: 15px;
+  -webkit-margin-start: 0px;
+}
+
+.b-alert .b-btn-extra:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--batch-extrabtn-hover_bgcolor);
 }
 
 .b-alert .b-btn-no {

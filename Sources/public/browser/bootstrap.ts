@@ -53,8 +53,12 @@ const setupBatchSDK = (): void => {
   }
 
   const userAgent = new UserAgent(window.navigator.userAgent);
-  if (userAgent.platform === Platform.IOS && userAgent.browser === Browser.Safari) {
-    return;
+  if (localStorage.getItem("__batchSDK__.staging_enableMobileSafari") === "1") {
+    console.log("[Batch] Staging mode: enabling mobile safari");
+  } else {
+    if (userAgent.platform === Platform.IOS && userAgent.browser === Browser.Safari) {
+      return;
+    }
   }
 
   if (Promise.toString().indexOf("[native code]") === -1) {

@@ -1,11 +1,9 @@
 import { ISDK, ISubscriptionState, Permission } from "com.batch.dom/sdk-impl/sdk";
-import SafariSDKFactory from "com.batch.dom/sdk-impl/sdk-safari";
-import StandardSDKFactory from "com.batch.dom/sdk-impl/sdk-standard";
+import { createSDKFactory } from "com.batch.dom/sdk-impl/sdk-factory";
 import getTranslator from "com.batch.dom/ui/translator";
 import { UIComponentHandler, UIComponentState } from "com.batch.dom/ui/uicomponent-handler";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
 import { asBoolean } from "com.batch.shared/helpers/primitive";
-import UserAgent, { Browser } from "com.batch.shared/helpers/user-agent";
 import { Evt, LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent, { IUIComponentReadyEventArgs } from "com.batch.shared/local-sdk-events";
 import { Log } from "com.batch.shared/logger";
@@ -163,13 +161,10 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
         );
       }
 
-      // update the instance
-      const typeSDKFactory =
-        new UserAgent(window.navigator.userAgent).browser === Browser.Safari && new UserAgent(window.navigator.userAgent).isDesktop
-          ? SafariSDKFactory
-          : StandardSDKFactory;
-
-      instance = ready.then(() => typeSDKFactory.setup(sdkConfig));
+      instance = ready.then(async () => {
+        const factory = await createSDKFactory();
+        return factory.setup(sdkConfig);
+      });
 
       // Handle window hash change
       // This should be done in the SDK itself but we have three unrelated implementations of it...

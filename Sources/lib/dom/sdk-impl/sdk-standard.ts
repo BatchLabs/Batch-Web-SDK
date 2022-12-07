@@ -4,8 +4,9 @@ import { Timeout } from "com.batch.shared/helpers/timed-promise";
 import { Log } from "com.batch.shared/logger";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
 
-import { ISDK, ISDKFactory } from "./sdk";
+import { ISDK } from "./sdk";
 import BaseSDK from "./sdk-base";
+import { ISDKFactory } from "./sdk-factory";
 
 const logModuleName = "sdk-standard";
 const defaultTimeout = 10; // default service worker timeout in seconds

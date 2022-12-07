@@ -48,8 +48,8 @@ export default class NotificationReceiver {
 
   private static isConfigValid(config: object | undefined | null): config is IPrivateBatchSDKConfiguration {
     if (config) {
-      const { apiKey, subdomain, authKey } = config as IPrivateBatchSDKConfiguration;
-      if (typeof apiKey !== "string" || typeof subdomain !== "string" || typeof authKey !== "string") {
+      const { apiKey, authKey } = config as IPrivateBatchSDKConfiguration;
+      if (typeof apiKey !== "string" || typeof authKey !== "string") {
         return false;
       }
       return true;
@@ -58,10 +58,6 @@ export default class NotificationReceiver {
   }
 
   // Public methods
-  public shouldDisplayNotifications(): boolean {
-    return this.isSubscribed;
-  }
-
   public static isBatchPushPayload(payload: unknown): boolean {
     if (typeof payload === "object") {
       return Payload.hasEssentialKeys(payload);

@@ -4,7 +4,7 @@ This documentation describe Batch SDK's public API.
 
 Once you've called `batchSDK("setup", {...})`, the public API can be accessed.
 
-You can get the [PublicAPI](interfaces/batchsdk.publicapi.html) implementation
+You can get the PublicAPI implementation
 by calling the global `batchSDK` method:
 
 ```
@@ -18,7 +18,7 @@ window.batchSDK(function(api) {
 ```
 
 Example: Fetching your Installation ID, using
-[getInstallationID](interfaces/batchsdk.publicapi.html#getinstallationid):
+getInstallationID:
 
 ```
 window.batchSDK(api => api.getInstallationID().then(console.log))
@@ -30,7 +30,7 @@ argument to `batchSDK()` is the method name.
 Subsequent arguments are forwarded to the public API method.
 
 Example: Forcibly showing an UI component
-([ui.show](interfaces/batchsdk.uiapi.html#show)) with both API call styles:
+(ui.show) with both API call styles:
 
 ```
 window.batchSDK(api => api.ui.show("alert", true));

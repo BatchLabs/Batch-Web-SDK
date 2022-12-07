@@ -221,6 +221,15 @@ export class DOMElement {
     return this;
   }
 
+  public href(content: string): DOMElement {
+    if (content !== null) {
+      this.filterHTML()
+        .filter(e => e instanceof HTMLAnchorElement)
+        .forEach(e => ((e as HTMLAnchorElement).href = content));
+    }
+    return this;
+  }
+
   public text(content: string): DOMElement {
     if (content !== null) {
       this.filterHTML().forEach(e => {

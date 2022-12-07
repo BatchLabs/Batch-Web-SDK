@@ -10,7 +10,10 @@ export interface IStyleCss {
   'b-alert-container__left': string;
   'b-cnt-container': string;
   'b-btn-container': string;
+  'b-hidden': string;
   'b-btn': string;
+  'b-btn-spacer': string;
+  'b-btn-extra': string;
   'b-btn-no': string;
   'b-btn-yes': string;
   'b-btn-unsub': string;
