@@ -26,6 +26,10 @@ export class ProbationManager {
     return this.isOutOfProbationCache;
   }
 
+  public async isInProbation(): Promise<boolean> {
+    return this.isOutOfProbation().then(out => !out);
+  }
+
   private async onSubscriptionChanged(state: ISubscriptionState): Promise<void> {
     const currentIsOutOfProbation = await this.isOutOfProbation();
 

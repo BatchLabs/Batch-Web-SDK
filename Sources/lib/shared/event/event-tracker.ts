@@ -1,18 +1,17 @@
+import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
+
 import { RETRY_MAX_ATTEMPTS, RETRY_MIN_INTERVAL_MS } from "../../../config";
 import { Delay } from "../helpers/timed-promise";
 import { Log } from "../logger";
 import { EventTrackerService } from "../webservice/event-tracker";
 import { IWebserviceExecutor } from "../webservice/executor";
 import HttpError from "../webservice/http-error";
-import Event from "./event";
-import EventDataPublic from "./event-public";
-import EventPublicReplayed from "./event-public-replayed";
 
 const FORBIDDEN_LOG_COOLDOWN = 10000; // 10s
 
 export default class EventTracker {
   // The buffer's job will be to hold the events while the webservice executor sends them
-  private buffer: Event[];
+  private buffer: ISerializableEvent[];
   //  ensures that only one event tracker WS runs at a time
   private attemptRunning: boolean;
   private webserviceExecutor: IWebserviceExecutor;
@@ -34,7 +33,7 @@ export default class EventTracker {
     this.lastForbiddenLog = 0;
   }
 
-  public track(event: Event | EventDataPublic | EventPublicReplayed): void {
+  public track(event: ISerializableEvent): void {
     Log.debug("Event Tracker", `Tracking event '${event.name}'`);
 
     this.buffer.push(event);

@@ -1,17 +1,18 @@
-import Event from "../event/event";
+import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
+
 import BaseWebservice from "./base";
 
 export class EventTrackerService extends BaseWebservice {
-  private events: Event[];
+  private events: ISerializableEvent[];
 
-  public constructor(events: Event[]) {
+  public constructor(events: ISerializableEvent[]) {
     super();
     this.events = events;
   }
 
   public getQuery(): object {
     return {
-      payload: this.events.map(e => Object.assign({}, e, { date: e.date.toISOString() })),
+      payload: this.events,
     };
   }
 

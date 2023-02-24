@@ -1,5 +1,4 @@
 {
-  "private" : true,
   "dependencies" : {
     "babel-eslint" : "^10.1.0",
     "@babel\/plugin-proposal-private-methods" : "^7.14.5",
@@ -56,13 +55,7 @@
     "cross-env" : "^7.0.3",
     "typescript" : "4.2"
   },
-  "version" : "3.4.0",
-  "repository" : {
-
-  },
-  "packageManager" : "yarn@3.2.0",
-  "majorVersion" : "3",
-  "license" : "Proprietary",
+  "private" : true,
   "scripts" : {
     "build" : "yarn type-check && yarn build-webpack",
     "doc" : "cd src\/public\/types\/ && typedoc --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
@@ -72,6 +65,13 @@
     "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
     "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
   },
+  "main" : "index.js",
   "name" : "batch-webpush-sdk",
-  "main" : "index.js"
+  "repository" : {
+
+  },
+  "majorVersion" : "3",
+  "version" : "3.5.0",
+  "license" : "Proprietary",
+  "packageManager" : "yarn@3.2.0"
 }

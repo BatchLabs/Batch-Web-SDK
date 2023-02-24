@@ -1,7 +1,9 @@
+import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
+
 import UUID from "../helpers/uuid";
 import { InternalSDKEvent } from "./event-names";
 
-export default class Event {
+export default class Event implements ISerializableEvent {
   // Event UUID
   public id: string;
 
@@ -28,5 +30,14 @@ export default class Event {
     }
 
     this.params = params || {};
+  }
+
+  public toJSON(): unknown {
+    return {
+      id: this.id,
+      name: this.name,
+      date: this.date.toISOString(),
+      params: this.params,
+    };
   }
 }

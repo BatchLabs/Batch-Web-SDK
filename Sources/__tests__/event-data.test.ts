@@ -2,7 +2,7 @@ import { EventData, TypedEventAttributeType } from "com.batch.shared/user/event-
 
 describe("Event Data to internal representation", () => {
   it("when params are empty, empty tags and attributes should be returned, not tags ", () => {
-    const eventData = new EventData("nameEvent", {});
+    const eventData = new EventData({});
 
     expect(eventData).toEqual({
       attributes: {},
@@ -13,7 +13,7 @@ describe("Event Data to internal representation", () => {
 
 describe("Event Data: Label", () => {
   it("should return the label", () => {
-    const eventData = new EventData("nameEvent", { label: "label" });
+    const eventData = new EventData({ label: "label" });
 
     expect(eventData).toEqual({
       attributes: {},
@@ -23,7 +23,7 @@ describe("Event Data: Label", () => {
   });
 
   it("should not return the label when is equal to null", () => {
-    const eventData = new EventData("nameEvent", { label: undefined });
+    const eventData = new EventData({ label: undefined });
 
     expect(eventData).toEqual({
       attributes: {},
@@ -32,7 +32,7 @@ describe("Event Data: Label", () => {
   });
 
   it("should not return the label when longer than 200 characters", () => {
-    const eventData = new EventData("EventName", {
+    const eventData = new EventData({
       label:
         "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovo" +
         "lcanoconiosispneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicrosc" +
@@ -46,7 +46,7 @@ describe("Event Data: Label", () => {
   });
 
   it("should not return the label when it is not a STRING", () => {
-    const eventData = new EventData("EventName", {
+    const eventData = new EventData({
       label: 3,
     });
 
@@ -59,37 +59,37 @@ describe("Event Data: Label", () => {
 
 describe("Event Data: Tags", () => {
   it("should return all tags excepts duplicates", () => {
-    const { tags } = new EventData("nameEvent", { tags: ["sports", "fruits", "foot"] });
+    const { tags } = new EventData({ tags: ["sports", "fruits", "foot"] });
 
     expect(tags).toEqual(["sports", "fruits", "foot"]);
   });
 
   it("should return 10 tags maximum", () => {
-    const { tags } = new EventData("nameEvent", { tags: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"] });
+    const { tags } = new EventData({ tags: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"] });
 
     expect(tags).toHaveLength(10);
   });
 
   it("should return the lowercase tag", () => {
-    const { tags } = new EventData("nameEvent", { tags: ["TAG"] });
+    const { tags } = new EventData({ tags: ["TAG"] });
 
     expect(tags).toEqual(["tag"]);
   });
 
   it("should not return the tag when it undefined", () => {
-    const { tags } = new EventData("nameEvent", { tags: undefined });
+    const { tags } = new EventData({ tags: undefined });
 
     expect(tags).toEqual([]);
   });
 
   it("should not return the tag when it's not a string", () => {
-    const { tags } = new EventData("nameEvent", { tags: [1, "foot"] });
+    const { tags } = new EventData({ tags: [1, "foot"] });
 
     expect(tags).toEqual(["foot"]);
   });
 
   it("should not return the tag when it's longer than 64 characters", () => {
-    const { tags } = new EventData("nameEvent", {
+    const { tags } = new EventData({
       tags: ["pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis"],
     });
 
@@ -99,7 +99,7 @@ describe("Event Data: Tags", () => {
 
 describe("Event Data: Attributes", () => {
   it("should return 20 attributes maximum", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key1: "value",
         key2: "value",
@@ -129,7 +129,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("should not return attribute when it is an invalid key", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis: "value",
       },
@@ -139,7 +139,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("should not return the attribute when it's longer than 64 characters", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis",
       },
@@ -149,7 +149,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("should not return attribute when it is an invalid value", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: undefined,
         key2: null,
@@ -160,7 +160,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("should return the key of the attribute in lowercase", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         KEY: "value",
         KEY1: {
@@ -175,7 +175,7 @@ describe("Event Data: Attributes", () => {
 
   // =================== ATTRIBUTE TYPED ONLY
   it("must return an attribute corresponding to its typing when it is STRING", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: {
           type: TypedEventAttributeType.STRING,
@@ -197,7 +197,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return an attribute corresponding to its typing when it is INTEGER", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: {
           type: TypedEventAttributeType.INTEGER,
@@ -222,7 +222,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return an attribute corresponding to its typing when it is FLOAT", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: {
           type: TypedEventAttributeType.FLOAT,
@@ -243,7 +243,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return an attribute corresponding to its typing when it is BOOLEAN", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: {
           type: TypedEventAttributeType.BOOLEAN,
@@ -276,7 +276,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return an attribute corresponding to its typing when it is DATE", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: {
           type: TypedEventAttributeType.DATE,
@@ -308,7 +308,7 @@ describe("Event Data: Attributes", () => {
       badUrl = badUrl + "batch.com";
     }
 
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: {
           type: TypedEventAttributeType.URL,
@@ -334,7 +334,7 @@ describe("Event Data: Attributes", () => {
 
   // =================== AUTO-DETECT ATTRIBUTE
   it("must return the key correspond to STRING when the value is a String", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: "1",
       },
@@ -344,7 +344,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return the key correspond to INTEGER when the value is a INTEGER", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: 1,
       },
@@ -354,7 +354,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return the key correspond to FLOAT when the value is a FLOAT", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: 1.33,
       },
@@ -364,7 +364,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return the key correspond to BOOLEAN when the value is a BOOLEAN", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: true,
       },
@@ -374,7 +374,7 @@ describe("Event Data: Attributes", () => {
   });
 
   it("must return the key correspond to DATE when the value is a DATE", () => {
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: new Date("2021-09-21"),
       },
@@ -391,7 +391,7 @@ describe("Event Data: Attributes", () => {
       badUrl = badUrl + "batch.com";
     }
 
-    const { attributes } = new EventData("nameEvent", {
+    const { attributes } = new EventData({
       attributes: {
         key: new URL("https://www.google.com"),
         key2: new URL(badUrl),

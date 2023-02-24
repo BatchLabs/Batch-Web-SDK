@@ -26,18 +26,11 @@ export interface IEventDataInternalRepresentation {
 const logModuleName = "Event Data";
 
 export class EventData {
-  public name: string;
   public tags: string[];
   public label?: string;
   public attributes: { [key: string]: ITypedEventAttribute };
 
-  public constructor(name: string, params?: BatchSDK.EventDataParams) {
-    if (!isString(name) || !Consts.EventNameRegex.test(name)) {
-      throw new Error(`
-        Invalid name event. Please make sure that the name is made of letters, 
-      underscores and numbers only (a-zA-Z0-9_). It also can't be longer than 30 characters. Ignoring event 
-        ${name}. Not sending event.`);
-    }
+  public constructor(params?: BatchSDK.EventDataParams) {
     const label = EventData.getLabel(params?.label);
     if (label) {
       this.label = label;

@@ -5,6 +5,11 @@ import { Browser, Platform, UserAgent } from "com.batch.shared/helpers/user-agen
 import { IS_WEBPACK_DEV_SERVER, SDK_VERSION, SSL_SCRIPT_URL } from "../../config";
 interface IBootstrapOptions {
   unsafe_allowNonNativePromises?: boolean | null;
+  allowNoNotification?: boolean | null;
+}
+
+interface MobileSafariNavigator extends Navigator {
+  standalone?: boolean;
 }
 
 const VERSION_MAJOR = SDK_VERSION === "rolling" ? SDK_VERSION : SDK_VERSION.split(".")[0];
@@ -47,16 +52,25 @@ const setupBatchSDK = (): void => {
     return;
   }
 
-  if (!("Notification" in window)) {
-    safeConsole.debug("[Batch] 'Notification' isn't available on window, refusing to load.");
-    return;
-  }
-
   const userAgent = new UserAgent(window.navigator.userAgent);
-  if (localStorage.getItem("__batchSDK__.staging_enableMobileSafari") === "1") {
-    console.log("[Batch] Staging mode: enabling mobile safari");
+  if (localStorage.getItem("__batchSDK__.forceMobileSafari") === "1") {
+    console.log("[Batch] Force enabling mobile safari");
   } else {
     if (userAgent.platform === Platform.IOS && userAgent.browser === Browser.Safari) {
+      // Only start in installed PWAs
+      // Condition is split to improve readability
+      if (!("standalone" in navigator) || (navigator as MobileSafariNavigator).standalone === false) {
+        safeConsole.debug("[Batch] Website is running in an iOS browser but isn't installed as a standalone app, refusing to load.");
+        return;
+      }
+    }
+  }
+
+  if (!("Notification" in window)) {
+    if (bootstrapOptions["allowNoNotification"] === true) {
+      safeConsole.debug("[Batch] Enabling SDK without Notification support.");
+    } else {
+      safeConsole.debug("[Batch] 'Notification' isn't available on window, refusing to load.");
       return;
     }
   }

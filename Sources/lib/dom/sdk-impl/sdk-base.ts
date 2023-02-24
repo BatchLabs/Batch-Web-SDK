@@ -1,8 +1,7 @@
 import Event from "com.batch.shared/event/event";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
-import EventPersistence from "com.batch.shared/event/event-persistence";
-import EventRouter from "com.batch.shared/event/event-router";
 import EventTracker from "com.batch.shared/event/event-tracker";
+import { PublicEvent } from "com.batch.shared/event/public-event";
 import { asBoolean } from "com.batch.shared/helpers/primitive";
 import { Browser, UserAgent } from "com.batch.shared/helpers/user-agent";
 import UUID from "com.batch.shared/helpers/uuid";
@@ -32,11 +31,9 @@ export default abstract class BaseSDK implements ISDK {
 
   protected database: unknown;
   protected eventTracker?: EventTracker;
-  protected eventPersistence?: EventPersistence;
   protected webserviceExecutor?: IWebserviceExecutor;
   protected parameterStore: ParameterStore;
   protected probationManager: ProbationManager;
-  protected eventRouter: EventRouter;
   protected userModule?: UserModule;
 
   /**
@@ -122,8 +119,6 @@ export default abstract class BaseSDK implements ISDK {
       this.webserviceExecutor = new WebserviceExecutor(this.config.apiKey, this.config.authKey, this.config.dev, referrer, parameterStore);
       this.probationManager = new ProbationManager(parameterStore);
       this.eventTracker = new EventTracker(this.config.dev, this.webserviceExecutor);
-      this.eventPersistence = new EventPersistence(parameterStore, this.eventTracker);
-      this.eventRouter = new EventRouter(this.eventTracker, this.eventPersistence, this.probationManager);
       this.userModule = new UserModule(this.probationManager, await UserDataPersistence.getInstance(), this.webserviceExecutor);
 
       /**
@@ -382,8 +377,8 @@ export default abstract class BaseSDK implements ISDK {
 
   public async trackEvent(name: string, eventDataParams?: BatchSDK.EventDataParams): Promise<void> {
     try {
-      const eventData = new EventData(name, eventDataParams);
-      await this.eventRouter.route(name, eventData);
+      const eventData = new EventData(eventDataParams);
+      this.eventTracker?.track(new PublicEvent(name, await this.probationManager.isInProbation(), eventData));
     } catch (e) {
       Log.error(logModuleName, e);
       return;
