@@ -1,3 +1,4 @@
+import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
 
 import { RETRY_MAX_ATTEMPTS, RETRY_MIN_INTERVAL_MS } from "../../../config";
@@ -36,6 +37,13 @@ export default class EventTracker {
   public track(event: ISerializableEvent): void {
     Log.debug("Event Tracker", `Tracking event '${event.name}'`);
 
+    if (
+      event.name === InternalSDKEvent.InstallNativeDataChanged &&
+      this.buffer.some(event => event.name === InternalSDKEvent.InstallNativeDataChanged)
+    ) {
+      Log.debug("Event Tracker", "Event InstallNativeDataChanged is already buffered, skipping");
+      return;
+    }
     this.buffer.push(event);
 
     if (this.debounceSend) {
@@ -55,8 +63,7 @@ export default class EventTracker {
     // Sort the buffer, take the events to end and remove them from the buffer
     // They will be added back if sending fails.
     // Events starting with _ have priority
-    const sortedBuffer = this.buffer.sort((a, b) => (a.name.charAt(0) === "_" ? -1 : b.name.charAt(0) === "_" ? 1 : 0));
-
+    const sortedBuffer = this.buffer;
     const eventsToSend = sortedBuffer.slice(0, this.limit);
     // Put events over the limit back into the buffer
     this.buffer = sortedBuffer.slice(this.limit, sortedBuffer.length);

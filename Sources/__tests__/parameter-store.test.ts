@@ -15,15 +15,15 @@ beforeAll(() => {
 });
 
 test("can get a single param", () => {
-  return store.getParameterValue(keysByProvider.system.SDKAPILevel).then(v => expect(v).toEqual("1"));
+  return store.getParameterValue(keysByProvider.system.DeviceDate).then(v => expect(typeof v).toBe("string"));
 });
 
 test("can get multiple params", done => {
   store
-    .getParametersValues([keysByProvider.system.SDKAPILevel, keysByProvider.system.DeviceDate])
+    .getParametersValues([keysByProvider.system.DeviceDate, keysByProvider.system.DeviceTimezone])
     .then(response => {
-      expect(response[keysByProvider.system.SDKAPILevel]).toBe("1");
       expect(typeof response.da).toBe("string");
+      expect(typeof response.dtz).toBe("string");
       return done();
     })
     .catch(error => done(error));

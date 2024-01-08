@@ -1,7 +1,7 @@
 /* eslint-env jest */
 import { expect, it } from "@jest/globals";
 import Event from "com.batch.shared/event/event";
-import { EventData } from "com.batch.shared/user/event-data";
+import { EventData } from "com.batch.shared/event/event-data";
 
 import { PublicEvent } from "../public-event";
 
@@ -49,12 +49,12 @@ it("tests public event data serialization", () => {
   });
 
   const eventData = new EventData({
-    label: "foolabel",
     attributes: {
       TESTstring: "foobar",
       TESTnum: 2,
+      $label: "foolabel",
+      $tags: ["TAG1", "tag2"],
     },
-    tags: ["TAG1", "tag2"],
   });
   event = new PublicEvent("test_event", false, eventData);
   event.date = new Date(expectedDate);

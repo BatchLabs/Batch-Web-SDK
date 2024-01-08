@@ -8,7 +8,6 @@ import { Evt, LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent, { IUIComponentReadyEventArgs } from "com.batch.shared/local-sdk-events";
 import { Log } from "com.batch.shared/logger";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
-import { UserAttributeEditor } from "com.batch.shared/user/user-attribute-editor";
 
 import { SDK_VERSION } from "../../config";
 import { BatchSDK } from "../types/public-api";
@@ -24,6 +23,8 @@ enum TypedEventAttributeType {
   FLOAT = "f",
   DATE = "t",
   URL = "u",
+  ARRAY = "a",
+  OBJECT = "o",
 }
 
 enum UserAttributeType {
@@ -33,6 +34,11 @@ enum UserAttributeType {
   FLOAT = "f",
   DATE = "t",
   URL = "u",
+  ARRAY = "a",
+}
+enum BatchEmailSubscriptionState {
+  SUBSCRIBED = "subscribed",
+  UNSUBSCRIBED = "unsubscribed",
 }
 
 export default function newPublicAPI(): BatchSDK.IPublicAPI {
@@ -125,8 +131,33 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
       }
       setupCalled = true;
 
+      // Keep the ServiceWorkerRegistration promise of the config in a safe variable
+      // as the config cloning will kill it.
+      // Unfortunately this means that getConfiguration() is now slightly inaccurate.
+      Log.debug(logModuleName, "Extracting ServiceWorkerRegistration from configuration");
+      let serviceWorkerRegistrationPromise: Promise<ServiceWorkerRegistration> | undefined = undefined;
+      // Note: this might break on websites that incorrectly polyfill Promise
+      if (config.serviceWorker?.registration instanceof Promise) {
+        serviceWorkerRegistrationPromise = config.serviceWorker?.registration;
+      }
+
       originalConfig = deepClone(config); // Keep a separate clone because the sdk will modify it
       config = deepClone(config);
+
+      // Delete the service worker from the cloned config: we do not want to modify the dev's config object
+      // We also don't want to accidentally serialize it
+      if (serviceWorkerRegistrationPromise) {
+        delete originalConfig.serviceWorker?.registration;
+        delete config.serviceWorker?.registration;
+
+        // Validate that the config is consistent
+        if (config.serviceWorker?.automaticallyRegister !== false) {
+          Log.publicError(
+            "A Service Worker registration has been set but 'automaicallyRegister' is absent or not set to 'false'. It will be ignored"
+          );
+          serviceWorkerRegistrationPromise = undefined;
+        }
+      }
 
       const uiConfig = config.ui;
       if (uiConfig && typeof uiConfig.language === "string") {
@@ -141,6 +172,9 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
           // This erases "internal" in the public config, on purpose
           origin: origin.startsWith("http") ? origin : null,
           referrer: document.location.href.toLowerCase(),
+        },
+        internalTransient: {
+          serviceWorkerRegistrationPromise,
         },
         ui: null,
       });
@@ -229,34 +263,10 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
     refreshServiceWorkerRegistration: () => getInstance().then(sdk => sdk.refreshServiceWorkerRegistration()),
 
     /**
-     * Associate a user identifier to this installation
-     * @public
-     */
-    setCustomUserID: (identifier: string | undefined) => getInstance().then(sdk => sdk.setCustomUserID(identifier)),
-
-    /**
-     * Returns the user identifier you did associate to this installation
-     * @public
-     */
-    getCustomUserID: () => getInstance().then(sdk => sdk.getCustomUserID()),
-
-    /**
-     * Associate a user language to this installation
-     * @public
-     */
-    setUserLanguage: (language: string | undefined) => getInstance().then(sdk => sdk.setLanguage(language)),
-
-    /**
      * Returns the user language you did associate to this installation
      * @public
      */
     getUserLanguage: () => getInstance().then(sdk => sdk.getLanguage()),
-
-    /**
-     * Associate a user region to this installation
-     * @public
-     */
-    setUserRegion: (region: string | undefined) => getInstance().then(sdk => sdk.setRegion(region)),
 
     /**
      * Returns the user region you did associate to this installation
@@ -367,16 +377,15 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
 
     eventAttributeTypes: Object.freeze(TypedEventAttributeType),
     userAttributeTypes: Object.freeze(UserAttributeType),
-
-    editUserData: (callback: (editor: UserAttributeEditor) => void): void => {
-      getInstance().then(sdk => {
-        sdk.editUserData(callback);
-      });
-    },
+    emailSubscriptionStates: Object.freeze(BatchEmailSubscriptionState),
 
     getUserAttributes: async () => getInstance().then(sdk => sdk.getUserAttributes()),
 
     getUserTagCollections: async () => getInstance().then(sdk => sdk.getUserTagCollections()),
+
+    clearInstallationData: async () => getInstance().then(sdk => sdk.clearInstallationData()),
+
+    profile: async () => getInstance().then(async sdk => await sdk.profile()),
 
     /**
      * UI components attached to the sdk

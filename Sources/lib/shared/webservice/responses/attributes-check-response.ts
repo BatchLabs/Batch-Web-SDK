@@ -5,10 +5,12 @@ export type AttributesCheckResponse = AttributesCheckBumpResponse | AttributesCh
 export interface AttributesCheckBumpResponse {
   action: "BUMP";
   ver: number;
+  project_key?: string;
 }
 
 export interface AttributesCheckOtherResponse {
   action: "OK" | "RESEND" | "RECHECK";
+  project_key?: string;
 }
 
 export function isAttributesCheckResponse(response: unknown): response is AttributesCheckResponse {

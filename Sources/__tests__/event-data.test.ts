@@ -1,4 +1,5 @@
-import { EventData, TypedEventAttributeType } from "com.batch.shared/user/event-data";
+import { EventData } from "../lib/shared/event/event-data";
+import { TypedEventAttributeType } from "../lib/shared/event/event-types";
 
 describe("Event Data to internal representation", () => {
   it("when params are empty, empty tags and attributes should be returned, not tags ", () => {
@@ -13,7 +14,7 @@ describe("Event Data to internal representation", () => {
 
 describe("Event Data: Label", () => {
   it("should return the label", () => {
-    const eventData = new EventData({ label: "label" });
+    const eventData = new EventData({ attributes: { $label: "label" } });
 
     expect(eventData).toEqual({
       attributes: {},
@@ -23,7 +24,7 @@ describe("Event Data: Label", () => {
   });
 
   it("should not return the label when is equal to null", () => {
-    const eventData = new EventData({ label: undefined });
+    const eventData = new EventData({ attributes: { $label: undefined } });
 
     expect(eventData).toEqual({
       attributes: {},
@@ -33,10 +34,12 @@ describe("Event Data: Label", () => {
 
   it("should not return the label when longer than 200 characters", () => {
     const eventData = new EventData({
-      label:
-        "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovo" +
-        "lcanoconiosispneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicrosc" +
-        "opicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis",
+      attributes: {
+        $label:
+          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovo" +
+          "lcanoconiosispneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicrosc" +
+          "opicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis",
+      },
     });
 
     expect(eventData).toEqual({
@@ -46,10 +49,7 @@ describe("Event Data: Label", () => {
   });
 
   it("should not return the label when it is not a STRING", () => {
-    const eventData = new EventData({
-      label: 3,
-    });
-
+    const eventData = new EventData({ attributes: { $label: 3 } });
     expect(eventData).toEqual({
       attributes: {},
       tags: [],
@@ -59,38 +59,40 @@ describe("Event Data: Label", () => {
 
 describe("Event Data: Tags", () => {
   it("should return all tags excepts duplicates", () => {
-    const { tags } = new EventData({ tags: ["sports", "fruits", "foot"] });
+    const { tags } = new EventData({ attributes: { $tags: ["sports", "fruits", "foot"] } });
 
     expect(tags).toEqual(["sports", "fruits", "foot"]);
   });
 
   it("should return 10 tags maximum", () => {
-    const { tags } = new EventData({ tags: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"] });
+    const { tags } = new EventData({ attributes: { $tags: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"] } });
 
     expect(tags).toHaveLength(10);
   });
 
   it("should return the lowercase tag", () => {
-    const { tags } = new EventData({ tags: ["TAG"] });
+    const { tags } = new EventData({ attributes: { $tags: ["TAG"] } });
 
     expect(tags).toEqual(["tag"]);
   });
 
   it("should not return the tag when it undefined", () => {
-    const { tags } = new EventData({ tags: undefined });
+    const { tags } = new EventData({ attributes: { $tags: undefined } });
 
     expect(tags).toEqual([]);
   });
 
   it("should not return the tag when it's not a string", () => {
-    const { tags } = new EventData({ tags: [1, "foot"] });
+    const { tags } = new EventData({ attributes: { $tags: [1, "foot"] } });
 
     expect(tags).toEqual(["foot"]);
   });
 
   it("should not return the tag when it's longer than 64 characters", () => {
     const { tags } = new EventData({
-      tags: ["pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis"],
+      attributes: {
+        $tags: ["pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis"],
+      },
     });
 
     expect(tags).toEqual([]);
@@ -122,6 +124,8 @@ describe("Event Data: Attributes", () => {
         key19: "value",
         key20: "value",
         key21: "value",
+        $label: "label",
+        $tags: ["michel", "c'est le bresil"],
       },
     });
 
@@ -138,10 +142,13 @@ describe("Event Data: Attributes", () => {
     expect(attributes).toEqual({});
   });
 
-  it("should not return the attribute when it's longer than 64 characters", () => {
+  it("should not return the attribute when it's longer than 200 characters", () => {
     const { attributes } = new EventData({
       attributes: {
-        key: "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis",
+        key:
+          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosi" +
+          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosiss" +
+          "silicovolcanoconiosis",
       },
     });
 
@@ -185,7 +192,10 @@ describe("Event Data: Attributes", () => {
           type: TypedEventAttributeType.STRING,
           value: "value",
         },
-        keyInError: "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis",
+        keyInError:
+          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis" +
+          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis" +
+          "covolcanoconiosisazert",
         absurdity: {
           type: TypedEventAttributeType.STRING,
           value: new Date(),

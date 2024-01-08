@@ -20,7 +20,7 @@ window.batchSDK(
       onDrawnCallback(component);
     });
     api.on(LocalSDKEvent.SubscriptionChanged, (_: never, sub: ISubscriptionState) => component.redraw(sub));
-    api.on(LocalSDKEvent.ProfileChanged, (_: never, sub: ISubscriptionState) => component.redraw(sub));
+    api.on(LocalSDKEvent.NativeDataChanged, (_: never, sub: ISubscriptionState) => component.redraw(sub));
 
     return component;
   }

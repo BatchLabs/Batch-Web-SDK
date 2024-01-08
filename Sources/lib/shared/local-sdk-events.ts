@@ -1,4 +1,5 @@
-// WARNING: Make sure changes here are also made in public-api.d.ts
+// WARNING: Some events here are duplicated in the public API,
+// So make sure changes here are also made in public-api.d.ts if needed.
 
 import { IUIComponent } from "../../public/browser/ui/base-component";
 
@@ -17,7 +18,7 @@ enum LocalSDKEvent {
   /**
    * Triggered when the profile changed
    */
-  ProfileChanged = "profileChanged",
+  NativeDataChanged = "nativeDataChanged",
 
   /**
    * Triggered when the subscription changed
@@ -50,14 +51,19 @@ enum LocalSDKEvent {
   HashChanged = "hashChanged",
 
   /**
-   * Triggered when the probation changes.
+   * Triggered when the push probation changes.
    */
   ExitedProbation = "exitedProbation",
 
   /**
-   * Triggered when /ats is called
+   * Triggered when device language or timezone has changed
    */
-  DataChanged = "dataChanged",
+  SystemParameterChanged = "systemParameterChanged",
+
+  /**
+   * Trigger when the project has changed
+   */
+  ProjectChanged = "projectChanged",
 }
 
 export interface IUIComponentDrawnEventArgs {

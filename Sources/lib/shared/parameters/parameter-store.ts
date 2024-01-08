@@ -1,3 +1,5 @@
+import { LocalEventBus } from "com.batch.shared/local-event-bus";
+import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 import { ProfilePersistence } from "com.batch.shared/persistence/profile";
 
 import deepEqual from "../helpers/deep-obj-compare";
@@ -5,7 +7,7 @@ import SessionPersistence from "../persistence/session";
 import { allowedKeyByProvider } from "./keys";
 import { ProfileKeys } from "./keys.profile";
 import { SessionKeys } from "./keys.session";
-import { SystemKeys } from "./keys.system";
+import { SystemKeys, SystemWatchedParameter, systemWatchedParameterBinder } from "./keys.system";
 import { IParameterStore } from "./parameters";
 import ProfileParameterProvider from "./profile-parameter-provider";
 import SessionParameterProvider from "./session-parameter-provider";
@@ -27,6 +29,23 @@ export default class ParameterStore implements IParameterStore {
 
   public constructor(p: IProviderInstances) {
     this.providers = p;
+    this.systemParameterMayHaveChanged(SystemKeys.DeviceLanguage);
+    this.systemParameterMayHaveChanged(SystemKeys.DeviceTimezone);
+  }
+
+  /**
+   * Check if the device system parameter has changed since the last time we get it
+   * @param key System parameter key
+   * @private
+   */
+  private async systemParameterMayHaveChanged(key: SystemWatchedParameter): Promise<void> {
+    const profileKey = systemWatchedParameterBinder[key];
+    const currentValue = await this.getParameterValue(key);
+    const oldValue = await this.getParameterValue(profileKey);
+    if (oldValue !== currentValue) {
+      await this.setParameterValue(profileKey, currentValue);
+      LocalEventBus.emit(LocalSDKEvent.SystemParameterChanged, { [profileKey]: currentValue }, false);
+    }
   }
 
   /**

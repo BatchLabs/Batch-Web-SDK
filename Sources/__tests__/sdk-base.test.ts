@@ -1,14 +1,19 @@
 /* eslint-env jest */
 // @ts-nocheck
 
+import { expect, jest } from "@jest/globals";
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/session");
+jest.mock("com.batch.shared/persistence/user-data");
 
 import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";
 import { keysByProvider } from "com.batch.shared/parameters/keys";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
 import { ProfilePersistence } from "com.batch.shared/persistence/profile";
 import Session from "com.batch.shared/persistence/session";
+
+import { LocalEventBus } from "../lib/shared/local-event-bus";
+import LocalSDKEvent from "../lib/shared/local-sdk-events";
 
 const sdk = new BaseSdk();
 
@@ -18,7 +23,6 @@ window.Notification = {
     return "granted";
   },
 };
-
 beforeAll(async () => {
   await sdk.setup({
     apiKey: "DEV12345",
@@ -29,7 +33,7 @@ beforeAll(async () => {
   await sdk.start();
 });
 
-test("is correctly isntancied", () => {
+test("is correctly instanced", () => {
   expect(sdk instanceof BaseSdk).toBe(true);
   expect(sdk.parameterStore instanceof ParameterStore).toBe(true);
   expect(sdk.parameterStore.providers.session.storage instanceof Session).toBe(true);
@@ -49,12 +53,12 @@ test("it has a session id", () =>
     expect(val.length).toBe(36);
   }));
 
-test("it can write and read a custom identifier", done => {
-  sdk.setCustomUserID("toto").then(resp => {
-    expect(resp).toBe("toto");
-    sdk.getCustomUserID().then(nextVal => {
-      expect(nextVal).toBe("toto");
-      done();
-    });
-  });
+test("it can write and custom identifier", async () => {
+  const profile = await sdk.profile();
+  const profilePersistence = await ProfilePersistence.getInstance();
+  await profile.identify({ customId: "test_custom_identifier" });
+  const cus = await profilePersistence.getData("cus");
+  expect(cus).toBe("test_custom_identifier");
+  // cleaning
+  await profilePersistence.removeData("cus");
 });

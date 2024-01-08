@@ -1,4 +1,4 @@
-import { UserDataAttributes, UserDataTagCollections } from "com.batch.shared/user/user-data-writer";
+import { UserDataAttributes, UserDataTagCollections } from "com.batch.shared/profile/user-data-types";
 
 import BaseWebservice from "./base";
 

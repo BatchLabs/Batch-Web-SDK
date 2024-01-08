@@ -29,6 +29,9 @@ test("getHeaders", () => {
     expect(headers).toHaveProperty("dtz");
     expect(headers).toHaveProperty("da");
     expect(headers).toHaveProperty("dla");
+    expect(headers).toHaveProperty("profile_probation");
+    expect(headers).toHaveProperty("data_collection");
+    expect(headers["data_collection"]).toHaveProperty("geoip");
   });
 });
 

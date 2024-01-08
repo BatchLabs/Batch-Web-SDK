@@ -9,5 +9,5 @@ export function Delay(duration: number): Promise<void> {
  * Returns a promise that failed after a duration (miliseconds)
  */
 export function Timeout(duration: number): Promise<void> {
-  return Delay(duration).then(() => Promise.reject("Timeout after " + duration + "ms"));
+  return Delay(duration).then(() => Promise.reject("Timed out after " + duration + "ms"));
 }

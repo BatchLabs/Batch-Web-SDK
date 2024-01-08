@@ -52,6 +52,11 @@ const setupBatchSDK = (): void => {
     return;
   }
 
+  if (!URL || URL.prototype.toString.call(new URL("https://batch.com")) !== "https://batch.com/") {
+    safeConsole.error("[Batch] URL is unreliable, refusing to load.");
+    return;
+  }
+
   const userAgent = new UserAgent(window.navigator.userAgent);
   if (localStorage.getItem("__batchSDK__.forceMobileSafari") === "1") {
     console.log("[Batch] Force enabling mobile safari");

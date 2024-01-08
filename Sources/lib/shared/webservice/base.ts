@@ -1,3 +1,8 @@
+import { fillDefaultDataCollectionConfiguration, serializeDataCollectionConfig } from "com.batch.shared/data-collection";
+import { ProbationManager } from "com.batch.shared/managers/probation-manager";
+import ParameterStore from "com.batch.shared/parameters/parameter-store";
+import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
+
 import { SDK_VERSION, WS_URL } from "../../../config";
 import { ProfileKeys } from "../parameters/keys.profile";
 import { SystemKeys } from "../parameters/keys.system";
@@ -35,26 +40,34 @@ export interface IWebservice {
 // They should extend it and override getQuery() and getURLShortname().
 // The webservice executor is the one that will then send it rather than the WS itself.
 export default class BaseWebservice implements IWebservice {
-  public getHeaders(parameterStore: IParameterStore): Promise<object> {
-    return parameterStore.getParametersValues(DefaultHeaderKeys).then(parameters => {
-      Object.keys(parameters).forEach(key => {
-        const value = parameters[key];
-        if (value != null) {
-          parameters[key] = "" + value;
-        }
-      });
-      return parameters;
+  public async getHeaders(parameterStore: IParameterStore): Promise<object> {
+    // Add default header keys
+    const parameters = await parameterStore.getParametersValues(DefaultHeaderKeys);
+    const probationManager = new ProbationManager(parameterStore as ParameterStore);
+    Object.keys(parameters).forEach(key => {
+      const value = parameters[key];
+      if (value != null) {
+        parameters[key] = "" + value;
+      }
     });
+
+    // Add data collection
+    const lastConfig = (await parameterStore.getParameterValue(ProfileKeys.LastConfiguration)) as IPrivateBatchSDKConfiguration | null;
+    const dataCollection = fillDefaultDataCollectionConfiguration(lastConfig?.defaultDataCollection);
+    parameters["data_collection"] = serializeDataCollectionConfig(dataCollection);
+
+    // Add profile probation
+    parameters["profile_probation"] = await probationManager.isInProfileProbation();
+    return parameters;
   }
 
   // Returns the full webservice request body (query + headers) as an object
-  public getBody(parameterStore: IParameterStore): Promise<object> {
-    return this.getHeaders(parameterStore).then(h => {
-      return {
-        ...this.getQuery(),
-        ids: h,
-      };
-    });
+  public async getBody(parameterStore: IParameterStore): Promise<object> {
+    const headers = await this.getHeaders(parameterStore);
+    return {
+      ...this.getQuery(),
+      ids: headers,
+    };
   }
 
   public getBaseURL(): string {

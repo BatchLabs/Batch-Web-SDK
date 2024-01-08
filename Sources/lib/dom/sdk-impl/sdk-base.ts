@@ -1,23 +1,24 @@
+import { fillDefaultDataCollectionConfiguration, serializeDataCollectionConfig } from "com.batch.shared/data-collection";
 import Event from "com.batch.shared/event/event";
+import { EventData } from "com.batch.shared/event/event-data";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import EventTracker from "com.batch.shared/event/event-tracker";
 import { PublicEvent } from "com.batch.shared/event/public-event";
-import { asBoolean } from "com.batch.shared/helpers/primitive";
+import deepEqual from "com.batch.shared/helpers/deep-obj-compare";
+import deepClone from "com.batch.shared/helpers/object-deep-clone";
+import { asBoolean, isString } from "com.batch.shared/helpers/primitive";
 import { Browser, UserAgent } from "com.batch.shared/helpers/user-agent";
 import UUID from "com.batch.shared/helpers/uuid";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 import { Log } from "com.batch.shared/logger";
-import { ProbationManager } from "com.batch.shared/managers/probation-manager";
+import { ProbationManager, ProbationType } from "com.batch.shared/managers/probation-manager";
 import { keysByProvider } from "com.batch.shared/parameters/keys";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
 import { UserDataPersistence } from "com.batch.shared/persistence/user-data";
+import { ProfileModule } from "com.batch.shared/profile/profile-module";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
-import { EventData } from "com.batch.shared/user/event-data";
-import { UserAttributeEditor } from "com.batch.shared/user/user-attribute-editor";
-import { UserModule } from "com.batch.shared/user/user-module";
 import { default as WebserviceExecutor, IWebserviceExecutor } from "com.batch.shared/webservice/executor";
-import { BatchSDK } from "public/types/public-api";
 
 import { ISDK, ISubscriptionState, Permission } from "./sdk";
 
@@ -34,7 +35,7 @@ export default abstract class BaseSDK implements ISDK {
   protected webserviceExecutor?: IWebserviceExecutor;
   protected parameterStore: ParameterStore;
   protected probationManager: ProbationManager;
-  protected userModule?: UserModule;
+  protected profileModule?: ProfileModule;
 
   /**
    * Keep the last subscription and subscribe state
@@ -47,19 +48,12 @@ export default abstract class BaseSDK implements ISDK {
 
   public constructor() {
     LocalEventBus.subscribe(LocalSDKEvent.ExitedProbation, this.onProbationChanged.bind(this));
-    LocalEventBus.subscribe(LocalSDKEvent.DataChanged, this.onDataChanged.bind(this));
   }
-
-  // ----------------------------------->
-
-  private onProbationChanged(): void {
-    Log.info(logModuleName, "Probation changed : " + InternalSDKEvent.FirstSubscription + " sent");
-    this.eventTracker?.track(new Event(InternalSDKEvent.FirstSubscription));
-  }
-
-  private onDataChanged(): void {
-    Log.info(logModuleName, "Data changed : " + InternalSDKEvent.InstallDataChanged + " sent");
-    this.eventTracker?.track(new Event(InternalSDKEvent.InstallDataChanged));
+  private onProbationChanged(param: { type: ProbationType }): void {
+    if (param.type === ProbationType.Push) {
+      Log.info(logModuleName, InternalSDKEvent.FirstSubscription + "event sent");
+      this.eventTracker?.track(new Event(InternalSDKEvent.FirstSubscription));
+    }
   }
 
   /**
@@ -70,12 +64,12 @@ export default abstract class BaseSDK implements ISDK {
   public async setup(sdkConfig: IPrivateBatchSDKConfiguration): Promise<ISDK> {
     try {
       this.config = Object.assign({}, sdkConfig);
-      // TODO Typeof string?
       if (!this.config.apiKey) {
-        // TODO check APIKey
         throw new Error("Configuration error: 'apiKey' is mandatory");
       }
-
+      if (!isString(this.config.apiKey)) {
+        throw new Error("Configuration error: 'apiKey' must be string.");
+      }
       // It isn't in dev, but force it anyway.
       if (!this.config.authKey) {
         throw new Error("Configuration error: 'authKey' is mandatory");
@@ -90,14 +84,17 @@ export default abstract class BaseSDK implements ISDK {
       this.parameterStore = parameterStore;
 
       /**
-       * Save the last known Configuration
+       * Get and save the last known configuration
        */
-      parameterStore.setParameterValue(keysByProvider.profile.LastConfiguration, this.config);
+      const configClone = deepClone(this.config);
+      const lastConfig = await parameterStore.getParameterValue<IPrivateBatchSDKConfiguration>(keysByProvider.profile.LastConfiguration);
+      // Remove un-persistable config objects
+      delete configClone.internalTransient;
+      parameterStore.setParameterValue(keysByProvider.profile.LastConfiguration, configClone);
 
       /**
        * Init installation id
        */
-
       try {
         const installationID = await parameterStore.getParameterValue(keysByProvider.profile.InstallationID);
         if (installationID == null) {
@@ -110,21 +107,28 @@ export default abstract class BaseSDK implements ISDK {
       /**
        * Init webservices
        */
-
       let referrer: string | undefined;
       if (this.config.internal && this.config.internal.referrer) {
         referrer = this.config.internal.referrer;
       }
-
+      const persistence = await UserDataPersistence.getInstance();
       this.webserviceExecutor = new WebserviceExecutor(this.config.apiKey, this.config.authKey, this.config.dev, referrer, parameterStore);
       this.probationManager = new ProbationManager(parameterStore);
       this.eventTracker = new EventTracker(this.config.dev, this.webserviceExecutor);
-      this.userModule = new UserModule(this.probationManager, await UserDataPersistence.getInstance(), this.webserviceExecutor);
+      this.profileModule = new ProfileModule(this.probationManager, persistence, this.webserviceExecutor, this.eventTracker, this.config);
+
+      /**
+       * Check if default data collection has changed since the last start
+       */
+      if (lastConfig && !deepEqual(lastConfig.defaultDataCollection, this.config.defaultDataCollection)) {
+        const dataCollection = fillDefaultDataCollectionConfiguration(this.config.defaultDataCollection);
+        const params = serializeDataCollectionConfig(dataCollection);
+        this.eventTracker.track(new Event(InternalSDKEvent.DataCollectionChanged, params));
+      }
 
       /**
        * Listen to permission change is available
        */
-
       // we need to be sure the store, ws, and default values are ready for this one
       // and we don't need to wait for it at the end
       // Safari not supported Permission API
@@ -150,7 +154,7 @@ export default abstract class BaseSDK implements ISDK {
 
       if (window != null) {
         if (new UserAgent(window.navigator.userAgent).browser === Browser.Firefox) {
-          window.setInterval(this.checkUpdate.bind(this), 5000); // Workaround a FF bug
+          window.setInterval(this.checkUpdate.bind(this), 5000); // Workaround a Firefox bug
         }
         window.addEventListener("focus", this.checkUpdate.bind(this));
 
@@ -189,7 +193,7 @@ export default abstract class BaseSDK implements ISDK {
     /**
      * Track the start event
      * wait for the event Tracker, new Session,
-     * and default params (we're gonna use the last subscription)
+     * and default params (we're going to use the last subscription)
      */
     await this.startSessionIfNeeded();
   }
@@ -229,53 +233,9 @@ export default abstract class BaseSDK implements ISDK {
     const parameterStore = await this.getParameterStore();
     return await parameterStore.setParameterValue(keysByProvider.profile.InstallationID, UUID());
   }
-
-  protected async bumpProfileVersion(): Promise<boolean> {
-    const parameterStore = await this.getParameterStore();
-    const version = await parameterStore.getParameterValue<string>(keysByProvider.profile.UserProfileVersion);
-    const intVal = version == null ? NaN : parseInt(version, 10);
-    await parameterStore.setParameterValue(keysByProvider.profile.UserProfileVersion, isNaN(intVal) ? 0 : intVal + 1);
-    return true;
-  }
-
-  public async setProfileParameter(key: string, identifier?: string | null): Promise<string | null> {
-    const definedIdentifier = typeof identifier === "undefined" ? null : identifier;
-    const parameterStore = await this.getParameterStore();
-    const idChanged = await parameterStore.setOrRemoveParameterValueIfChanged(key, definedIdentifier);
-    if (idChanged) {
-      this.bumpProfileVersion().then(() => {
-        // send SDK event
-        if (this.eventTracker) {
-          this.eventTracker.track(new Event(InternalSDKEvent.ProfileChanged));
-        }
-        // send local event
-        LocalEventBus.emit(LocalSDKEvent.ProfileChanged, { [key]: definedIdentifier }, true);
-      });
-    }
-    return definedIdentifier;
-  }
-
   //#region Public API
 
   public abstract refreshServiceWorkerRegistration(): Promise<void>;
-
-  public async setCustomUserID(identifier: string | null | undefined): Promise<string | null> {
-    await this.setProfileParameter(keysByProvider.profile.CustomIdentifier, identifier);
-    return typeof identifier === "undefined" ? null : identifier;
-  }
-
-  public setLanguage(lang: string | null | undefined): Promise<string | null> {
-    return this.setProfileParameter(keysByProvider.profile.UserLanguage, lang);
-  }
-
-  public setRegion(lang: string | null | undefined): Promise<string | null> {
-    return this.setProfileParameter(keysByProvider.profile.UserRegion, lang);
-  }
-
-  public async getCustomUserID(): Promise<string | null> {
-    const p = await this.getParameterStore();
-    return await p.getParameterValue<string>(keysByProvider.profile.CustomIdentifier);
-  }
 
   public async getLanguage(): Promise<string | null> {
     const p = await this.getParameterStore();
@@ -353,7 +313,7 @@ export default abstract class BaseSDK implements ISDK {
   }
 
   /**
-   * Get the subscription from database and check if have changed.
+   * Get the subscription from database and check if it has changed.
    * Subclasses have to update the description in database (#updateSubscription)
    * in order to emit appropriate events.
    *
@@ -378,51 +338,34 @@ export default abstract class BaseSDK implements ISDK {
   public async trackEvent(name: string, eventDataParams?: BatchSDK.EventDataParams): Promise<void> {
     try {
       const eventData = new EventData(eventDataParams);
-      this.eventTracker?.track(new PublicEvent(name, await this.probationManager.isInProbation(), eventData));
+      this.eventTracker?.track(new PublicEvent(name, await this.probationManager.isInPushProbation(), eventData));
     } catch (e) {
       Log.error(logModuleName, e);
       return;
-    }
-
-    return;
-  }
-
-  public async editUserData(callback: (editor: BatchSDK.IUserDataEditor) => void): Promise<void> {
-    if (typeof callback !== "function") {
-      return;
-    }
-
-    if (!this.userModule) {
-      Log.error(logModuleName, "Internal error (no user module available)");
-      return;
-    }
-
-    const editor = new UserAttributeEditor();
-
-    callback(editor);
-    editor._markAsUnusable();
-
-    try {
-      this.userModule.editUserData(editor);
-    } catch (e) {
-      Log.error(logModuleName, e);
     }
 
     return;
   }
 
   public async getUserAttributes(): Promise<{ [key: string]: BatchSDK.IUserAttribute }> {
-    if (this.userModule) {
-      return this.userModule.getPublicAttributes();
+    if (this.profileModule) {
+      return this.profileModule.getPublicAttributes();
     }
-    throw new Error("Internal error (no user module available)");
+    throw new Error("Internal error (no profile module available)");
   }
 
   public async getUserTagCollections(): Promise<{ [key: string]: string[] }> {
-    if (this.userModule) {
-      return this.userModule.getPublicTagCollections();
+    if (this.profileModule) {
+      return this.profileModule.getPublicTagCollections();
     }
-    throw new Error("Internal error (no user module available)");
+    throw new Error("Internal error (no profile module available)");
+  }
+
+  public async clearInstallationData(): Promise<void> {
+    if (this.profileModule) {
+      return this.profileModule.clearInstallationData();
+    }
+    throw new Error("Internal error (no profile module available)");
   }
 
   //#endregion
@@ -439,14 +382,14 @@ export default abstract class BaseSDK implements ISDK {
    * Checks whether the subscription matches the expected format and if not, sanitizes it.
    * Can return undefined if the subscription is inconsistent with the environment (ex: APNS subscription in a WPP environment).
    *
-   * Should be overriden by implementations.
+   * Should be overridden by implementations.
    */
   protected sanitizeSubscription(subscription: unknown): unknown {
     return subscription;
   }
 
   /**
-   * Read the subcribed flag and check if something changed
+   * Read the subscribed flag and check if something changed
    */
   public async readAndCheckSubscribed(): Promise<boolean> {
     let sub = await (await this.getParameterStore()).getParameterValue<boolean>(keysByProvider.profile.Subscribed);
@@ -495,7 +438,7 @@ export default abstract class BaseSDK implements ISDK {
   public async updateSubscribed(subscribed: boolean): Promise<boolean> {
     const parameterStore = await this.getParameterStore();
     parameterStore.setParameterValue(keysByProvider.profile.Subscribed, subscribed);
-    Log.debug(logModuleName, "Writring subscribed:", subscribed);
+    Log.debug(logModuleName, "Writing subscribed:", subscribed);
     return this.readAndCheckSubscribed();
   }
 
@@ -514,7 +457,7 @@ export default abstract class BaseSDK implements ISDK {
 
     if (typeof subscribed === "boolean") {
       parameterStore.setParameterValue(keysByProvider.profile.Subscribed, subscribed);
-      Log.debug(logModuleName, "Writring subscribed:", subscribed);
+      Log.debug(logModuleName, "Writing subscribed:", subscribed);
     }
 
     return this.readAndCheckSubscription();
@@ -567,5 +510,11 @@ export default abstract class BaseSDK implements ISDK {
       return { protocol: "WPP", subscription: this.lastSubscription };
     }
     return null;
+  }
+  public async profile(): Promise<BatchSDK.IProfile> {
+    if (this.profileModule) {
+      return this.profileModule.get();
+    }
+    throw new Error("Internal error (no profile module available)");
   }
 }

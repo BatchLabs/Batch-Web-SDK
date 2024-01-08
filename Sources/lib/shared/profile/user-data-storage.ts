@@ -1,11 +1,13 @@
 import { isNumber, isString } from "com.batch.shared/helpers/primitive";
+import { Log } from "com.batch.shared/logger";
 import { IComplexPersistenceProvider } from "com.batch.shared/persistence/persistence-provider";
+import { ProfileAttributeType, ProfileCustomDataAttributes } from "com.batch.shared/profile/profile-data-types";
 
-import { UserDataAttributes, UserDataTagCollections } from "./user-data-writer";
+const logModuleName = "UserDataStorage";
 
 enum Keys {
-  UserAttributes = "attributes",
-  UserTagCollections = "tags",
+  ProfileAttributes = "attributes",
+  LegacyTagCollections = "tags",
   Version = "ver",
   Txid = "txid",
   LastCheckTimestamp = "last_atc",
@@ -18,16 +20,8 @@ export class UserDataStorage {
     this.persistence = persistence;
   }
 
-  public async persistAttributes(attributes: UserDataAttributes): Promise<void> {
-    await this.persistence.setData(Keys.UserAttributes, attributes);
-  }
-
-  public async persistTags(tagCollections: UserDataTagCollections): Promise<void> {
-    const outTagArrays: { [key: string]: string[] } = {};
-    for (const [collection, tagSet] of Object.entries(tagCollections)) {
-      outTagArrays[collection] = Array.from(tagSet);
-    }
-    await this.persistence.setData(Keys.UserTagCollections, outTagArrays);
+  public async persistAttributes(attributes: ProfileCustomDataAttributes): Promise<void> {
+    await this.persistence.setData(Keys.ProfileAttributes, attributes);
   }
 
   public async persistTxid(txid: string): Promise<void> {
@@ -50,29 +44,18 @@ export class UserDataStorage {
     await this.persistence.removeData(Keys.LastCheckTimestamp);
   }
 
-  public async getAttributes(): Promise<UserDataAttributes> {
-    const attributes = await this.persistence.getData<UserDataAttributes>(Keys.UserAttributes);
+  public async removeAttributes(): Promise<void> {
+    await this.persistence.removeData(Keys.ProfileAttributes);
+  }
+
+  public async getAttributes(): Promise<ProfileCustomDataAttributes> {
+    const attributes = await this.persistence.getData<ProfileCustomDataAttributes>(Keys.ProfileAttributes);
     return attributes === null ? {} : attributes;
   }
 
   public async getVersion(): Promise<number> {
     const version = await this.persistence.getData<number>(Keys.Version);
     return version === null ? 0 : version;
-  }
-
-  public async getTagsAsArrays(): Promise<{ [key: string]: string[] }> {
-    const tags = await this.persistence.getData<{ [key: string]: string[] }>(Keys.UserTagCollections);
-    return tags === null ? {} : tags;
-  }
-
-  public async getTags(): Promise<UserDataTagCollections> {
-    const tagCollections = await this.getTagsAsArrays();
-
-    const outTagSets: UserDataTagCollections = {};
-    for (const [collection, tags] of Object.entries(tagCollections)) {
-      outTagSets[collection] = new Set(tags);
-    }
-    return outTagSets;
   }
 
   public async getTxid(): Promise<string | undefined> {
@@ -89,5 +72,29 @@ export class UserDataStorage {
       return timestamp;
     }
     return;
+  }
+
+  public async migrateTagsIfNeeded(): Promise<void> {
+    try {
+      // Getting old tags
+      const tags = await this.persistence.getData<{ [key: string]: string[] }>(Keys.LegacyTagCollections);
+      if (tags) {
+        // Format old tags to profile array attributes
+        const attributes = await this.getAttributes();
+        for (const [collection, array] of Object.entries(tags)) {
+          attributes[collection] = {
+            type: ProfileAttributeType.ARRAY,
+            value: new Set(array),
+          };
+        }
+        // Save new attributes
+        await this.persistAttributes(attributes);
+        // Remove tags entry
+        await this.persistence.removeData(Keys.LegacyTagCollections);
+        Log.debug(logModuleName, "Legacy tags successfully migrated.");
+      }
+    } catch (e) {
+      Log.debug(logModuleName, "Legacy tags migration failed with error.", e);
+    }
   }
 }

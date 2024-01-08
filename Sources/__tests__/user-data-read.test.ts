@@ -1,11 +1,14 @@
 /* eslint-env jest */
 
+import { UserAttributeType } from "../lib/shared/profile/user-data-types";
+
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/user-data");
 
 import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";
 import { UserDataPersistence } from "com.batch.shared/persistence/user-data";
-import { UserAttributeType } from "com.batch.shared/user/user-attribute-editor";
+
+import { ProfileAttributeType } from "../lib/shared/profile/profile-data-types";
 
 // Required mock, JSDOM doesn't support Notification
 window.Notification = {
@@ -35,6 +38,7 @@ it("can read user attributes using the public API", async () => {
     age: { type: UserAttributeType.INTEGER, value: 26 },
     foo: { type: UserAttributeType.STRING, value: "bar" },
     date: { type: UserAttributeType.DATE, value: now.getTime() },
+    foo2: { type: ProfileAttributeType.ARRAY, value: ["bar", "baz"] },
   });
 
   const attributes = await sdk.getUserAttributes();
@@ -65,15 +69,14 @@ it("can read user attributes using the public API", async () => {
 
 it("can read user tags using the public API", async () => {
   const persistence = await UserDataPersistence.getInstance();
-  await persistence.setData("tags", {
-    interests: ["sports"],
-    foo: ["bar", "baz"],
+  await persistence.setData("attributes", {
+    interests: { type: ProfileAttributeType.ARRAY, value: new Set(["sports"]) },
+    foo: { type: ProfileAttributeType.ARRAY, value: new Set(["bar", "baz"]) },
+    age: { type: UserAttributeType.INTEGER, value: 26 },
   });
 
   const tags = await sdk.getUserTagCollections();
-
   expect(Object.keys(tags).length).toEqual(2);
-
   expect(tags.interests).toEqual(["sports"]);
   expect(tags.foo).toEqual(["bar", "baz"]);
 });

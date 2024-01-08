@@ -14,7 +14,7 @@ module.exports = {
     BATCH_SDK_VERSION: sdkPackage.version,
     BATCH_SDK_MAJOR_VERSION: "3",
   },
-  testPathIgnorePatterns: ["ui-tests", "node_modules"],
+  testPathIgnorePatterns: ["tests-e2e", "node_modules"],
   testEnvironment: "jsdom",
   transform: {
     "^.+\\.(ts|js)$": "babel-jest",

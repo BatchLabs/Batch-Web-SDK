@@ -37,7 +37,9 @@ it("uses an existing service worker when asked", async () => {
   (swMock as any).ready = Promise.resolve(mockSWInstance);
 
   const batchConfig = {
-    useExistingServiceWorker: true,
+    serviceWorker: {
+      automaticallyRegister: false,
+    },
   } as IPrivateBatchSDKConfiguration;
 
   const sdk = new StandardSDK();

@@ -1,3 +1,4 @@
+import { translations as de } from "./de";
 import { translations as en } from "./en";
 import { translations as fr } from "./fr";
 
@@ -20,4 +21,5 @@ export interface IBuiltinTranslations {
 export const translations: IBuiltinTranslations = {
   en,
   fr,
+  de,
 };

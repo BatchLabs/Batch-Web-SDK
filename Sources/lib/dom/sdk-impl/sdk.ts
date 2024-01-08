@@ -45,34 +45,14 @@ export interface ISDK {
   start(): Promise<void>;
 
   /**
-   * Return the custom user id associated to this installation.
-   */
-  getCustomUserID(): Promise<string | null>;
-
-  /**
-   * Associate a new language to this installation.
-   */
-  setLanguage(language?: string | undefined | null): Promise<string | null>;
-
-  /**
    * Return the language associated to this installation.
    */
   getLanguage(): Promise<string | null>;
 
   /**
-   * Associate a new region to this installation.
-   */
-  setRegion(region: string | undefined | null): Promise<string | null>;
-
-  /**
    * Return the region associated to this installation.
    */
   getRegion(): Promise<string | null>;
-
-  /**
-   * Associate a new custom user id to this installation.
-   */
-  setCustomUserID(identifier?: string | undefined | null): Promise<string | null>;
 
   /**
    * Returns the identifier of this installation.
@@ -129,9 +109,26 @@ export interface ISDK {
    */
   trackEvent(name: string, params?: BatchSDK.EventDataParams): void;
 
-  editUserData(callback: (editor: BatchSDK.IUserDataEditor) => void): void;
-
+  /**
+   * Read the saved attributes.
+   * Returns a Promise that resolves with the attributes.
+   */
   getUserAttributes(): Promise<{ [key: string]: BatchSDK.IUserAttribute }>;
 
+  /**
+   * Read the saved tag collections.
+   * Returns a Promise that resolves with the tag collections.
+   */
   getUserTagCollections(): Promise<{ [key: string]: string[] }>;
+
+  /**
+   * Remove all custom user data.
+   * This API has no effect on profile's data.
+   */
+  clearInstallationData(): Promise<void>;
+
+  /**
+   * Return the public profile module interface.
+   */
+  profile(): Promise<BatchSDK.IProfile>;
 }

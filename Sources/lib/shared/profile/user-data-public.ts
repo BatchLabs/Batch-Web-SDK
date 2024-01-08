@@ -1,6 +1,6 @@
-import { BatchSDK } from "public/types/public-api";
+import { UserAttributeType } from "com.batch.shared/profile/user-data-types";
 
-import { UserAttributeType } from "./user-attribute-editor";
+import { BatchSDK } from "../../../public/types/public-api";
 
 // Class exposed in the Public API (which is why it has a "Batch" name, to differentiate it from the internal type
 export class BatchUserAttribute implements BatchSDK.IUserAttribute {

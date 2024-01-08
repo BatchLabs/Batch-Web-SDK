@@ -1,8 +1,6 @@
 // tslint:disable no-namespace
 // tslint:disable no-shadowed-variable
 
-import LocalSDKEvent from "com.batch.shared/local-sdk-events";
-
 declare namespace BatchSDK {
   /**
    * Event attribute types.
@@ -16,7 +14,63 @@ declare namespace BatchSDK {
     FLOAT = "f",
     DATE = "t",
     URL = "u",
+    ARRAY = "a",
+    OBJECT = "o",
   }
+
+  /**
+   * Event data attribute type
+   *
+   * Some event attributes have reserved keys, and are all prefixed by a $ sign. This is the list of currently reserved event attributes.
+   * You cannot set an event attribute starting by a $ sign.
+   */
+  export type EventDataAttributeType = {
+    /**
+     * Event label. Must be a string, will automatically be bridged as label for application event compatibility.
+     * Must not be longer than 200 characters
+     */
+    $label: string;
+
+    /**
+     * Event tags. Must be an array of string, will automatically be bridged as tags for application event compatibility.
+     * Strings must not be longer than 64 characters and array must not be longer than 10 items.
+     */
+    $tags: Array<string>;
+
+    /**
+     * All event's attributes.
+     */
+    [key: string]:
+      | string
+      | boolean
+      | number
+      | URL
+      | Date
+      | Array<string | EventObjectAttributeValueType>
+      | EventObjectAttributeValueType
+      | EventAttributeValue;
+  };
+
+  type EventObjectAttributeValueType = {
+    [key: string]: string | boolean | number | URL | Date | Array<string | EventObjectAttributeValueType> | EventObjectAttributeValueType;
+  };
+  type EventAttributeValue =
+    | { type: TypedEventAttributeType.BOOLEAN; value: boolean | number }
+    | { type: TypedEventAttributeType.STRING; value: string }
+    | { type: TypedEventAttributeType.URL; value: string | URL }
+    | { type: TypedEventAttributeType.INTEGER; value: number | `${number}` }
+    | { type: TypedEventAttributeType.FLOAT; value: number | `${number}` }
+    | { type: TypedEventAttributeType.DATE; value: Date }
+    | { type: TypedEventAttributeType.ARRAY; value: Array<string | EventObjectAttributeValueType> }
+    | { type: TypedEventAttributeType.OBJECT; value: EventObjectAttributeValueType };
+
+  export type EventDataParams = {
+    /**
+     * Event attributes. Keys are the attribute names. Some keys are documented as they're reserved.
+     * See `EventDataAttributeType` for more info.
+     */
+    attributes?: EventDataAttributeType;
+  };
 
   /**
    * User attribute types.
@@ -31,22 +85,6 @@ declare namespace BatchSDK {
     DATE = "t",
     URL = "u",
   }
-
-  export type EventAttributeValue =
-    | { type: TypedEventAttributeType.BOOLEAN; value: boolean | number }
-    | { type: TypedEventAttributeType.STRING; value: string }
-    | { type: TypedEventAttributeType.URL; value: string | URL }
-    | { type: TypedEventAttributeType.INTEGER; value: number | `${number}` }
-    | { type: TypedEventAttributeType.FLOAT; value: number | `${number}` }
-    | { type: TypedEventAttributeType.DATE; value: Date };
-
-  export type EventDataParams = {
-    attributes?: {
-      [key: string]: EventAttributeValue | string | boolean | number | URL | Date;
-    };
-    tags?: string[];
-    label?: string | null;
-  };
 
   export type UserAttributeValue =
     | { type: UserAttributeType.BOOLEAN; value: boolean | number }
@@ -75,6 +113,139 @@ declare namespace BatchSDK {
     getURLValue(): URL | undefined;
   }
 
+  /**
+   * Profile attribute types.
+   *
+   * This enum's implementation is available on api.userAttributeTypes.
+   */
+  export enum ProfileAttributeType {
+    STRING = "s",
+    BOOLEAN = "b",
+    INTEGER = "i",
+    FLOAT = "f",
+    DATE = "t",
+    URL = "u",
+    ARRAY = "a",
+  }
+
+  export type ProfileTypedAttributeValue =
+    | { type: ProfileAttributeType.BOOLEAN; value: boolean | number }
+    | { type: ProfileAttributeType.STRING; value: string }
+    | { type: ProfileAttributeType.URL; value: string | URL }
+    | { type: ProfileAttributeType.INTEGER; value: number | `${number}` }
+    | { type: ProfileAttributeType.FLOAT; value: number | `${number}` }
+    | { type: ProfileAttributeType.DATE; value: Date }
+    | { type: ProfileAttributeType.ARRAY; value: Array<string> };
+
+  export type ProfileAttributeValue =
+    | ProfileTypedAttributeValue
+    | string
+    | boolean
+    | number
+    | URL
+    | Date
+    | Array<string>
+    | null
+    | undefined;
+
+  /**
+   * Object representing a profile attribute.
+   * An attribute is represented by its type, which matches the one you've used
+   * when setting the attribute, and its value.
+   *
+   * You can get the attribute using the generic getter, or use the typed ones
+   * that will cast the value or return undefined if the type doesn't match.
+   */
+  interface IProfileAttribute {
+    getType(): UserAttributeType;
+    getValue(): unknown;
+
+    getStringValue(): string | undefined;
+    getBooleanValue(): boolean | undefined;
+    getNumberValue(): number | undefined;
+    getDateValue(): Date | undefined;
+    getURLValue(): URL | undefined;
+    getArrayValue(): Array | undefined;
+  }
+
+  /**
+   * Batch's Profile Module.
+   */
+  export interface IProfile {
+    /**
+     * Identify the current user.
+     *
+     * Attach the current installation to a Profile.
+     * @param identifier An object containing the `customId`.
+     *
+     * Return a promise that resolve the IProfile instance.
+     *
+     * See `https://doc.batch.com/web/custom-data/customid` for more info.
+     */
+    identify: (identifier: { customId?: string } | null | undefined) => Promise<IProfile>;
+
+    /**
+     * Edit profile's attributes.
+     * @param callback A callback which will be called with an instance of the profile data editor.
+     *
+     * To edit data, pass a function to this method. Batch will call it back with the profile data editor as its only parameter.
+     * Once your callback ends, Batch will persist the changes.
+     *
+     * If your edits result in your attributes going over limit, an error will be logged and
+     * _all_ of the changes described in the transaction will be rolled back, as if nothing happened.
+     * See `https://doc.batch.com/web/custom-data/custom-attributes` for more info about the limits.
+     *
+     * Escaping the editor instance is not supported: calling any method on it once your callback has ended _will_
+     * throw an exception.
+     *
+     * See `ProfileDataEditor`'s documentation for the methods available on the user data editor.
+     *
+     * Return a promise that resolve the IProfile instance.
+     */
+    edit: (callback: (editor: IProfileDataEditor) => void) => Promise<IProfile>;
+  }
+
+  /**
+   * Batch's Profile Data Editor.
+   * See `https://doc.batch.com/ios/custom-data/custom-attributes` for more info.
+   */
+  interface IProfileDataEditor {
+    /**
+     * Associate a language to this profile.
+     * @param language must be 2 chars, lowercase, ISO 639 formatted
+     */
+    setLanguage: (language: string | undefined | null) => IProfileEditor;
+
+    /**
+     * Associate a region to this profile.
+     * @param region must be 2 chars, uppercase, ISO 3166 formatted
+     */
+    setRegion: (region: string | undefined | null) => IProfileEditor;
+
+    /**
+     * Associate an email address to this profile.
+     *
+     * This requires to have a custom user ID registered with the `identify` API.
+     * @param email must be valid, not longer than 256 characters. It must match the following pattern: ^[^@]+@[A-z0-9\-\.]+\.[A-z0-9]+$.
+     * Null to erase.
+     */
+    setEmailAddress: (email: string | undefined | null) => IProfileEditor;
+
+    /**
+     * The profile's marketing emails subscription.
+     *
+     * Note that profile's subscription status is automatically set to unsubscribed when they click an unsubscribe link.
+     * @param state You can set it to subscribed or unsubscribed.
+     */
+    setEmailMarketingSubscription: (state: "subscribed" | "unsubscribed") => IProfileEditor;
+
+    setAttribute: (key: string, value: ProfileAttributeValue) => IProfileEditor;
+    removeAttribute: (key: string) => IProfileEditor;
+
+    addToArray: (key: string, value: Array<string>) => IProfileEditor;
+    removeFromArray: (key: string, value: Array<string>) => IProfileEditor;
+  }
+
   export interface ISDKConfiguration {
     dev: boolean;
     smallIcon?: string;
@@ -83,9 +254,6 @@ declare namespace BatchSDK {
     authKey: string;
     apiKey: string;
     vapidPublicKey?: string;
-    useExistingServiceWorker?: boolean;
-    serviceWorkerPathOverride?: string;
-    serviceWorkerTimeout?: number;
     /**
      * @deprecated used by old versions
      * @ignore
@@ -97,6 +265,67 @@ declare namespace BatchSDK {
      */
     enableHashFeatures?: boolean;
     ui?: ISDKUIConfiguration | null;
+    /**
+     * Service Worker related configuration
+     */
+    serviceWorker?: ISDKServiceWorkerConfiguration;
+    /**
+     * Default data collection related configuration
+     */
+    defaultDataCollection?: ISDKDefaultDataCollectionConfiguration;
+    /**
+     * Migrations related configuration
+     */
+    migrations?: ISDKMigrationsConfiguration;
+  }
+
+  /**
+   * Data migrations related configuration
+   */
+  export interface ISDKMigrationsConfiguration {
+    /**
+     *  SDK V4 migrations related configuration
+     */
+    v4?: {
+      /**
+       * Whether Bath should automatically identify logged-in user when running the SDK for the first time.
+       * This mean user with a custom_user_id will be automatically attached a to a Profile
+       * and can be targeted within a Project scope.
+       * Default: true
+       */
+      customID?: boolean;
+
+      /**
+       * Whether Bath should automatically attach current installation's data (language/region/customDataAttributes...)
+       * to the User's Profile when running the SDK for the first time.
+       * Default: true
+       */
+      customData?: boolean;
+    };
+  }
+
+  export interface ISDKServiceWorkerConfiguration {
+    /**
+     * Maximum waiting time for your Service Worker to be ready (default: 10 seconds).
+     */
+    waitTimeout?: number;
+
+    /**
+     * Whether Batch should automatically register its service worker (default: true).
+     */
+    automaticallyRegister?: boolean;
+
+    /**
+     * Allows you to have Batch use a specific Service Worker registration. (requires `automaticallyRegister` to be false).
+     */
+    registration?: Promise<ServiceWorkerRegistration>;
+  }
+
+  export interface ISDKDefaultDataCollectionConfiguration {
+    /**
+     * Whether Batch should resolve the user's region/location from the ip address (default: false).
+     */
+    geoIP?: boolean;
   }
 
   export interface ISDKUIConfiguration {
@@ -129,7 +358,7 @@ declare namespace BatchSDK {
   export enum SDKEvent {
     /**
      * Triggered when the subscription changed
-     * The subsription state is given as detail
+     * The subscription state is given as detail
      */
     SubscriptionChanged = "subscriptionChanged",
 
@@ -146,7 +375,7 @@ declare namespace BatchSDK {
     UiComponentDrawn = "uiComponentDrawn",
 
     /**
-     * Triggered when the ui component handler has been intialized
+     * Triggered when the ui component handler has been initialized
      * and you can start to draw your component.
      */
     UiReady = "uiReady",
@@ -213,29 +442,9 @@ declare namespace BatchSDK {
     getConfiguration: () => ISDKConfiguration;
 
     /**
-     * Associate a user identifier to this installation.
-     */
-    setCustomUserID: (identifier: string | undefined | null) => Promise<string | null>;
-
-    /**
-     * Returns the user identifier associated to this installation
-     */
-    getCustomUserID: () => Promise<string | null>;
-
-    /**
-     * Associate a user language override to this installation
-     */
-    setUserLanguage: (identifier: string | undefined | null) => Promise<string | null>;
-
-    /**
      * Returns the user language associated to this installation
      */
     getUserLanguage: () => Promise<string | null>;
-
-    /**
-     * Associate a user region override to this installation
-     */
-    setUserRegion: (identifier: string | undefined | null) => Promise<string | null>;
 
     /**
      * Returns the user region associated to this installation
@@ -275,7 +484,7 @@ declare namespace BatchSDK {
     unsubscribe: () => Promise<boolean>;
 
     /**
-     * Try to subscrive from the given subscription state.
+     * Try to subscribe from the given subscription state.
      * Force asking the permission even if the permission is granted
      *
      * @see #getSubscriptionState to get the "state" parameter value
@@ -319,7 +528,7 @@ declare namespace BatchSDK {
      *
      * @see SDKEvent enum.
      */
-    on: (eventCode: LocalSDKEvent, callback: unknown) => void;
+    on: (eventCode: SDKEvent, callback: unknown) => void;
 
     /**
      * UI related methods
@@ -332,7 +541,7 @@ declare namespace BatchSDK {
      * It also can't be longer than 30 characters.
      * @param eventDataParams eventDataParams (optional). Parameter object, accepting label, attributes and tags, all optional.
      *
-     * attributes: Must be a object.
+     * attributes: Must be an object.
      * The key should be made of letters, numbers or underscores ([a-z0-9_]) and can't be longer than 30 characters.
      *
      * Attribute typing is optional.
@@ -343,31 +552,16 @@ declare namespace BatchSDK {
      * - Integer, the value must be a string or number
      * - Double, the value must be a string or number
      * - Boolean, the value must be a boolean or number
+     * - Array, the value must be an array of strings
+     * - Object, the value must be an object containing the above types
      *
-     * Type auto detection is possible.
+     * Type auto-detection is possible.
      *
-     * tags: Must be a array of string. Can't be longer than 64 characters, and can't be empty or null.
-     * label: Must be a string when supplied. It also can't be longer than 200 characters.
+     * If you were previously using `label`and `tags`you can specify in the `attributes`object the reserved keys:
+     * $tags: Must be n array of string. Can't be longer than 64 characters, and can't be empty or null.
+     * $label: Must be a string when supplied. It also can't be longer than 200 characters.
      */
     trackEvent: (name: string, eventDataParams?: EventDataParams) => void;
-
-    /**
-     * Edit user attributes and tags.
-     * @param callback A callback which will be called with an instance of the user data editor.
-     *
-     * To edit data, pass a function to this method. Batch will call it back with the user data editor as its only parameter.
-     * Once your callback ends, Batch will persist the changes.
-     *
-     * If your edits result in your attributes and tags going over limit, an error will be logged and
-     * _all_ of the changes described in the transaction will be rolled back, as if nothing happened.
-     * See `https://doc.batch.com/ios/custom-data/custom-attributes` for more info about the limits.
-     *
-     * Escaping the editor instance is not supported: calling any method on it once your callback has ended _will_
-     * throw an exception.
-     *
-     * See `IUserDataEditor`'s documentation for the methods availalbe on the user data editor.
-     */
-    editUserData: (callback: (editor: IUserDataEditor) => void) => void;
 
     /**
      * Read the saved attributes.
@@ -380,78 +574,21 @@ declare namespace BatchSDK {
      * Returns a Promise that resolves with the tag collections.
      */
     getUserTagCollections(): Promise<{ [key: string]: string[] }>;
+
+    /**
+     * Clear the custom data of this installation.
+     *
+     * This mean removing all attributes attached to the user's installation but Profile's data will not be removed.
+     */
+    clearInstallationData(): Promise<void>;
+
+    /**
+     * Get the Profile module
+     *
+     * Returns a Promise that resolves with the profile's APIs
+     */
+    profile(): Promise<IProfile>;
   }
-
-  /**
-   * Batch's User Data Editor.
-   * See `https://doc.batch.com/ios/custom-data/custom-attributes` for more info.
-   */
-  interface IUserDataEditor {
-    /**
-     * Add a tag to a tag collection.
-     */
-    addTag: (collection: string, tag: string) => IUserDataEditor;
-
-    /**
-     * Remove a tag from a tag collection.
-     */
-    removeTag: (collection: string, tag: string) => IUserDataEditor;
-
-    /**
-     * Delete a tag collection and its tags.
-     */
-    clearTagCollection: (collection: string) => IUserDataEditor;
-
-    /**
-     * Delete all tag collections.
-     */
-    clearTags: () => IUserDataEditor;
-
-    /**
-     * Set a user attribute value.
-     * @param key Attribute key. Must be a string made of letters, underscores and numbers only (a-zA-Z0-9_).
-     * It also can't be longer than 30 characters.
-     * @param value Attribute value.
-     *
-     * If the value is a string, boolean, number, URL or Date: the underlying type will be autodetected.
-     *
-     * To force an attribute's type, you can set "value" to be an object conforming `UserAttributeValue`, which has two keys:
-     *  - type: Expected type. Must be a value of the `api.userAttributeTypes` enum.
-     *  - value: Attribute value. Must be a string, boolean, number, URL or Date and coherent with the type.
-     *
-     * When using UserAttributeValue as a parameter, Batch will enforce the type and either cast it if possible or reject the operation
-     * if the value type isn't consistent with the requested type.
-     * This ensures that you don't end up with unexpected types in your tagging plan.
-     *
-     * attributes: Must be a object.
-     * The key should be made of letters, numbers or underscores ([a-z0-9_]) and can't be longer than 30 characters.
-     *
-     * Attribute typing is optional.
-     * Supported types:
-     * - Date, the value must be a Date
-     * - URL, the value must be a string or URL
-     * - String, the value must be a string or number
-     * - Integer, the value must be a string or number
-     * - Double, the value must be a string or number
-     * - Boolean, the value must be a boolean or number
-     *
-     * Type auto detection is possible.
-     *
-     * See `https://doc.batch.com/ios/custom-data/custom-attributes` for more info.
-     */
-    setAttribute: (key: string, value: UserAttributeValue | string | boolean | number | URL | Date) => IUserDataEditor;
-
-    /**
-     * Remove the attribute associated to a key.
-     */
-    removeAttribute: (key: string) => IUserDataEditor;
-
-    /**
-     * Remove all attributes.
-     */
-    clearAttributes: () => IUserDataEditor;
-  }
-
   export interface IUiAPI {
     /**
      * Register a new component for the specified code.

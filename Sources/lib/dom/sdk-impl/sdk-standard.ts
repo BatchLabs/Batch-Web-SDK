@@ -10,6 +10,7 @@ import { ISDKFactory } from "./sdk-factory";
 
 const logModuleName = "sdk-standard";
 const defaultTimeout = 10; // default service worker timeout in seconds
+const defaultServiceWorkerPath = "/batchsdk-worker-loader.js";
 
 /**
  * SDK Meant to be used on HTTPS websites
@@ -59,8 +60,9 @@ export class StandardSDK extends BaseSDK implements ISDK {
   }
 
   private async initServiceWorker(sdkConfig: IPrivateBatchSDKConfiguration): Promise<void> {
+    const sdkSWConfig = sdkConfig.serviceWorker || {};
     if (window.navigator.serviceWorker != null) {
-      const timeout = Math.max(defaultTimeout, sdkConfig.serviceWorkerTimeout || defaultTimeout);
+      const timeout = Math.max(defaultTimeout, sdkSWConfig.waitTimeout || defaultTimeout);
 
       try {
         const result = await Promise.race([this.registerOrGetServiceWorker(sdkConfig), Timeout(timeout * 1000)]);
@@ -69,13 +71,14 @@ export class StandardSDK extends BaseSDK implements ISDK {
         }
       } catch (e) {
         Log.error(logModuleName, "Error while initializing service worker :", e);
-        if (sdkConfig.useExistingServiceWorker) {
+        if (sdkSWConfig.automaticallyRegister) {
           Log.publicError(
-            "Timed out while waiting for the existing service worker: is your service worker properly registered?\nOriginal error: " + e
+            "Failed to register the service worker. Is it accessible at '" + defaultServiceWorkerPath + "'?\nOriginal error: " + e
           );
         } else {
-          const swPath = this.getServiceWorkerPath(sdkConfig);
-          Log.publicError("Failed to register the service worker. Is it accessible at '" + swPath + "'?\nOriginal error: " + e);
+          Log.publicError(
+            "Error while waiting for the existing service worker: is your service worker properly registered?\nOriginal error: " + e
+          );
         }
         throw new Error("An error occurred while initializing the service worker: " + e);
       }
@@ -84,24 +87,27 @@ export class StandardSDK extends BaseSDK implements ISDK {
     }
   }
 
-  private getServiceWorkerPath(sdkConfig: IPrivateBatchSDKConfiguration): string {
-    let swPath = "/batchsdk-worker-loader.js";
-    if (typeof sdkConfig.serviceWorkerPathOverride === "string") {
-      swPath = sdkConfig.serviceWorkerPathOverride || swPath;
-    }
-    return swPath;
-  }
-
   /**
    * Get the Service Worker registration, by registering it if needed.
    */
   private async registerOrGetServiceWorker(sdkConfig: IPrivateBatchSDKConfiguration): Promise<ServiceWorkerRegistration> {
     const swContainer = window.navigator.serviceWorker;
+    const sdkSWConfig = sdkConfig.serviceWorker || {};
 
-    if (sdkConfig.useExistingServiceWorker) {
-      Log.info(logModuleName, "Not registering Batch's SW, we have been asked to use the existing one");
+    if (sdkSWConfig.automaticallyRegister === false) {
+      Log.info(logModuleName, "Not registering Batch's SW, we have been asked to use an existing one");
+      // If user asked to use an existing service worker, also await the manual API
+      // Look for the registration in "internalTransient": it is NOT in ISDKServiceWorkerConfiguration
+      // as it is not serializable.
+      if (sdkConfig.internalTransient?.serviceWorkerRegistrationPromise) {
+        Log.info(logModuleName, "Awaiting SW Promise");
+        return sdkConfig.internalTransient.serviceWorkerRegistrationPromise;
+      } else {
+        Log.info(logModuleName, "Awaiting SW ready");
+        return swContainer.ready;
+      }
     } else {
-      await swContainer.register(this.getServiceWorkerPath(sdkConfig), { scope: "/" });
+      await swContainer.register(defaultServiceWorkerPath, { scope: "/" });
     }
     const registration = await swContainer.ready;
     Log.info(logModuleName, "service worker ready");

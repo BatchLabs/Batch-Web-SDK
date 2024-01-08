@@ -212,6 +212,7 @@ export default class NotificationReceiver {
       }
 
       if (targetHref) {
+        Log.debug(moduleName, "Opening link from notification", targetHref);
         self.clients.openWindow(targetHref);
         return Promise.resolve();
       } else {

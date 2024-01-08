@@ -2,6 +2,8 @@ import { ISubscriptionState } from "com.batch.dom/sdk-impl/sdk";
 import { doc, dom } from "com.batch.dom/ui/dom";
 import updateClassNames from "com.batch.dom/ui/style";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
+import { keysByProvider } from "com.batch.shared/parameters/keys";
+import ParameterStore from "com.batch.shared/parameters/parameter-store";
 
 import { IBatchSDK } from "../../public-api";
 import { BaseComponent } from "../base-component";
@@ -90,7 +92,12 @@ export default class PublicIdentifiers extends BaseComponent<IPublicIdentifiersC
     });
 
     this.loadValueFromPromise(selectors.content.installID, this.api.getInstallationID());
-    this.loadValueFromPromise(selectors.content.userID, this.api.getCustomUserID());
+    this.loadValueFromPromise(
+      selectors.content.userID,
+      ParameterStore.getInstance().then(store => {
+        return store.getParameterValue<string>(keysByProvider.profile.CustomIdentifier);
+      })
+    );
     this.loadValueFromPromise(
       selectors.content.registration,
       this.api.getSubscription().then(s => {

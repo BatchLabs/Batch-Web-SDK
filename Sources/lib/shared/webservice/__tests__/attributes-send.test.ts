@@ -1,4 +1,4 @@
-import { UserAttributeType } from "com.batch.shared/user/user-attribute-editor";
+import { UserAttributeType } from "com.batch.shared/profile/user-data-types";
 import { AttributesSendService } from "com.batch.shared/webservice/attributes-send";
 
 describe("Attributes Send serialize model to payload", () => {

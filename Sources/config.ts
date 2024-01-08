@@ -7,7 +7,7 @@ declare let BATCH_SDK_VERSION: string;
 declare let BATCH_SDK_MAJOR_VERSION: string;
 declare let BATCH_IS_WEBPACK_DEV_SERVER: string;
 
-export const SDK_API_LVL = "1";
+export const SDK_API_LVL = "40";
 export const SDK_VERSION = BATCH_SDK_VERSION;
 export const SDK_MAJOR_VERSION = BATCH_SDK_MAJOR_VERSION;
 export const SDK_DISMISS_NOTIF_AFTER = 30;

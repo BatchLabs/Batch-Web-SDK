@@ -1,6 +1,6 @@
 import { Consts } from "com.batch.shared/constants/user";
+import { IEventDataInternalRepresentation } from "com.batch.shared/event/event-types";
 import { isString } from "com.batch.shared/helpers/primitive";
-import { IEventDataInternalRepresentation } from "com.batch.shared/user/event-data";
 
 import UUID from "../helpers/uuid";
 import { ISerializableEvent } from "./serializable-event";

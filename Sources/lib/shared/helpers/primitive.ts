@@ -1,8 +1,8 @@
 /**
- * Returns the value as a boolean if it is one or a non zero number.
+ * Returns the value as a boolean if it is one or a non-zero number.
  * Doesn't convert strings by design.
  *
- * Fallsback on the default value if the value is not a boolean or a number.
+ * Fallback on the default value if the value is not a boolean or a number.
  */
 export function asBoolean(value: unknown, fallback: boolean): boolean {
   if (typeof value === "boolean") {
@@ -38,6 +38,14 @@ export function isDate(value: unknown): value is Date {
 
 export function isURL(value: unknown): value is URL {
   return value instanceof URL;
+}
+
+export function isArray(value: unknown): value is Array<unknown> {
+  return Array.isArray(value);
+}
+
+export function isSet(value: unknown): value is Set<string> {
+  return value instanceof Set;
 }
 
 export function isUnknownObject(value: unknown): value is { [key: string]: unknown } {
