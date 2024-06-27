@@ -1,5 +1,6 @@
 import { IProfileNativeOperations, IProfileOperation, ProfileDataOperation } from "com.batch.shared/profile/profile-attribute-editor";
-import { BatchSDK } from "public/types/public-api";
+
+import { BatchSDK } from "../../../public/types/public-api";
 
 export const isTypedEventAttributeValue = (value: unknown): value is BatchSDK.EventAttributeValue => {
   return (

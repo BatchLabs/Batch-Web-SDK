@@ -1,3 +1,5 @@
+import { BatchSDK } from "../../public/types/public-api";
+
 /**
  * Json representation of the data collection related configuration
  */

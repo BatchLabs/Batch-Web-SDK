@@ -1,7 +1,4 @@
-// tslint:disable no-namespace
-// tslint:disable no-shadowed-variable
-
-declare namespace BatchSDK {
+export namespace BatchSDK {
   /**
    * Event attribute types.
    *
@@ -96,7 +93,7 @@ declare namespace BatchSDK {
 
   /**
    * Object representing a user attribute.
-   * An attribute is represented by it's type, which maches the one you've used
+   * An attribute is represented by its type, which matches the one you've used
    * when setting the attribute, and its value.
    *
    * You can get the attribute using the generic getter, or use the typed ones
@@ -375,7 +372,7 @@ declare namespace BatchSDK {
     UiComponentDrawn = "uiComponentDrawn",
 
     /**
-     * Triggered when the ui component handler has been initialized
+     * Triggered when the ui component handler has been initialized,
      * and you can start to draw your component.
      */
     UiReady = "uiReady",
@@ -464,7 +461,7 @@ declare namespace BatchSDK {
 
     /**
      * Returns the permission state of notifications.
-     * Having the permission to display notifications doens't mean that this installation is subscribed to push notifications.
+     * Having the permission to display notifications doesn't mean that this installation is subscribed to push notifications.
      * - granted : we have the permission
      * - denied : we don't have the permission
      * - default : we don't have, have to ask the user
@@ -492,7 +489,7 @@ declare namespace BatchSDK {
     tryToSubscribeFrom: (state: ISubscriptionState) => Promise<boolean>;
 
     /**
-     * Returns the raw subscription associated to this insallation.
+     * Returns the raw subscription associated to this installation.
      * Having a subscription doesn't necessarily mean the installation is subscribed,
      * the user may have unsubscribed or refused notification.
      * Call #isSubscribed() or #getSubscriptionState() to know the exact state of this subscription.
@@ -516,7 +513,7 @@ declare namespace BatchSDK {
      *  - If you are using Batch for the first time but another push provider
      *    was configured and held a registration
      *
-     * If there is no worker or no push scubscription, the promise resolves to true as
+     * If there is no worker or no push subscription, the promise resolves to true as
      * a subscription would most likely succeed.
      *
      * Always returns true on Safari, as it doesn't support standard push notifications.
@@ -646,7 +643,7 @@ declare namespace BatchSDK {
     hide: (componentCode: string) => Promise<void>;
 
     /**
-     * Shows the current user's identifiers inside of the current page
+     * Shows the current user's identifiers inside the current page
      */
     showPublicIdentifiers: () => void;
   }

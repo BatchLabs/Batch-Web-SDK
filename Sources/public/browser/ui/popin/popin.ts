@@ -1,6 +1,6 @@
 import { ISubscriptionState } from "com.batch.dom/sdk-impl/sdk";
-import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 
+import { BatchSDK } from "../../../types/public-api";
 import { IBatchSDK } from "../../public-api";
 import { BatchWindow } from "../sdk";
 import Popin, { IPopinConfig } from "./component";
@@ -12,11 +12,11 @@ const componentName = "popin";
 window.batchSDK("ui.register", componentName, (api: IBatchSDK, conf: unknown, onDrawnCallback: (component: unknown) => void) => {
   const popin = new Popin(api, conf as Partial<IPopinConfig>);
 
-  api.on(LocalSDKEvent.UiReady, (_: unknown, sub: ISubscriptionState) => {
+  api.on(BatchSDK.SDKEvent.UiReady, (_: unknown, sub: ISubscriptionState) => {
     popin.draw(sub);
     onDrawnCallback(popin);
   });
-  api.on(LocalSDKEvent.SubscriptionChanged, (_: unknown, sub: ISubscriptionState) => popin.redraw(sub));
+  api.on(BatchSDK.SDKEvent.SubscriptionChanged, (_: unknown, sub: ISubscriptionState) => popin.redraw(sub));
 
   return popin;
 });

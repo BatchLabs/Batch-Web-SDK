@@ -3,7 +3,8 @@ import { isArray, isBoolean, isDate, isFloat, isNumber, isString, isURL } from "
 import { isProfileTypedAttributeValue } from "com.batch.shared/helpers/typed-attribute";
 import { Log } from "com.batch.shared/logger";
 import { ProfileAttributeType, ProfileNativeAttributeType } from "com.batch.shared/profile/profile-data-types";
-import { BatchSDK } from "public/types/public-api";
+
+import { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Profile Attribute Editor";
 

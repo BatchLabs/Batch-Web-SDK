@@ -73,13 +73,15 @@ export class SafariSDK extends BaseSDK implements ISDK {
     await super.start();
 
     // Try to resubscribe if we have a valid website push ID
-    Log.debug(logModuleName, "Tyring to resubscribe for " + this.websitePushID);
-    if (this.websitePushID) {
-      const remotePermission = window.safari.pushNotification.permission(this.websitePushID);
-      try {
-        await this.syncSubscription(remotePermission);
-      } catch {
-        throw new Error("Could not synchronize subscription status with remote");
+    if (this.isPushMessagingAvailable()) {
+      Log.debug(logModuleName, "Tyring to resubscribe for " + this.websitePushID);
+      if (this.websitePushID) {
+        const remotePermission = window.safari.pushNotification.permission(this.websitePushID);
+        try {
+          await this.syncSubscription(remotePermission);
+        } catch {
+          throw new Error("Could not synchronize subscription status with remote");
+        }
       }
     }
   }
@@ -304,6 +306,10 @@ export class SafariSDK extends BaseSDK implements ISDK {
       return Promise.resolve(window.safari.pushNotification.permission(this.websitePushID).permission);
     }
     return Promise.reject("Internal error (no window or websitePushID available, is the SDK setup finished?)");
+  }
+
+  protected isPushMessagingAvailable(): boolean {
+    return window != null && "safari" in window && "pushNotification" in window.safari;
   }
 }
 

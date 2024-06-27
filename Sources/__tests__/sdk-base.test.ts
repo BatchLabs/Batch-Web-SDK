@@ -12,10 +12,9 @@ import ParameterStore from "com.batch.shared/parameters/parameter-store";
 import { ProfilePersistence } from "com.batch.shared/persistence/profile";
 import Session from "com.batch.shared/persistence/session";
 
-import { LocalEventBus } from "../lib/shared/local-event-bus";
-import LocalSDKEvent from "../lib/shared/local-sdk-events";
+import { TestSDK } from "../__mocks__/sdk";
 
-const sdk = new BaseSdk();
+const sdk = new TestSDK();
 
 // TODO: Find a better to mock this
 window.Notification = {

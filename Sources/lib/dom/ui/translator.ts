@@ -1,5 +1,6 @@
 import { ITranslationTexts, IUIComponentsTranslations, translations } from "com.batch.translations/translations";
-import { BatchSDK } from "public/types/public-api";
+
+import { BatchSDK } from "../../../public/types/public-api";
 
 const comps = ["button", "switcher", "banner", "popin", "alert", "public-identifiers"];
 

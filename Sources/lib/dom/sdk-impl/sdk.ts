@@ -1,4 +1,4 @@
-import { BatchSDK } from "public/types/public-api";
+import { BatchSDK } from "../../../public/types/public-api";
 
 export enum Permission {
   Default = "default",

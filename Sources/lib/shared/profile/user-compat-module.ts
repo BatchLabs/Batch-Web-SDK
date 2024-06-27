@@ -33,6 +33,8 @@ import { AttributesSendService } from "com.batch.shared/webservice/attributes-se
 import { IWebserviceExecutor } from "com.batch.shared/webservice/executor";
 import { isAttributesCheckResponse } from "com.batch.shared/webservice/responses/attributes-check-response";
 
+import { BatchSDK } from "../../../public/types/public-api";
+
 const logModuleName = "User";
 
 const MIN_ATTRIBUTES_CHECK_INTERVAL_MS = 1000 * 60 * 5; // 5 minutes

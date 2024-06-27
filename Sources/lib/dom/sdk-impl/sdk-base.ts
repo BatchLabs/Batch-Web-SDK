@@ -20,6 +20,7 @@ import { ProfileModule } from "com.batch.shared/profile/profile-module";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
 import { default as WebserviceExecutor, IWebserviceExecutor } from "com.batch.shared/webservice/executor";
 
+import { BatchSDK } from "../../../public/types/public-api";
 import { ISDK, ISubscriptionState, Permission } from "./sdk";
 
 const logModuleName = "sdk-base";
@@ -173,22 +174,23 @@ export default abstract class BaseSDK implements ISDK {
      * Keep the last values of subscription and subscribe flag
      * to generate browser event on change
      */
+    if (this.isPushMessagingAvailable()) {
+      const stPromise = this.parameterStore
+        .getParameterValue<PushSubscriptionJSON>(keysByProvider.profile.Subscription)
+        .then(s => (this.lastSubscription = s));
+      const sdPromise = this.parameterStore
+        .getParameterValue<boolean>(keysByProvider.profile.Subscribed)
+        .then(s => (this.lastSubscribed = s === true));
 
-    const stPromise = this.parameterStore
-      .getParameterValue<PushSubscriptionJSON>(keysByProvider.profile.Subscription)
-      .then(s => (this.lastSubscription = s));
-    const sdPromise = this.parameterStore
-      .getParameterValue<boolean>(keysByProvider.profile.Subscribed)
-      .then(s => (this.lastSubscribed = s === true));
+      this.lastSubscription = this.sanitizeSubscription(this.lastSubscription);
 
-    this.lastSubscription = this.sanitizeSubscription(this.lastSubscription);
-
-    await Promise.all([stPromise, sdPromise]);
-    this.lastPermission = await this.readPermission();
-    this.lastState = {
-      permission: this.lastPermission || Permission.Default,
-      subscribed: this.lastSubscribed || false,
-    };
+      await Promise.all([stPromise, sdPromise]);
+      this.lastPermission = await this.readPermission();
+      this.lastState = {
+        permission: this.lastPermission || Permission.Default,
+        subscribed: this.lastSubscribed || false,
+      };
+    }
 
     /**
      * Track the start event
@@ -233,8 +235,14 @@ export default abstract class BaseSDK implements ISDK {
     const parameterStore = await this.getParameterStore();
     return await parameterStore.setParameterValue(keysByProvider.profile.InstallationID, UUID());
   }
-  //#region Public API
 
+  /**
+   * Whether Push Messaging is available on the browser
+   * @protected
+   */
+  protected abstract isPushMessagingAvailable(): boolean;
+
+  //#region Public API
   public abstract refreshServiceWorkerRegistration(): Promise<void>;
 
   public async getLanguage(): Promise<string | null> {
@@ -263,6 +271,9 @@ export default abstract class BaseSDK implements ISDK {
    * - a subscription
    */
   public async isSubscribed(): Promise<boolean> {
+    if (!this.isPushMessagingAvailable()) {
+      return Promise.reject("Push messaging isn't supported.");
+    }
     const permission = await this.getPermission();
     if (permission !== "granted" || !(await this.readAndCheckSubscribed())) {
       return false;
@@ -296,6 +307,9 @@ export default abstract class BaseSDK implements ISDK {
    * Subscribe if we have the token in database, use it
    */
   public async subscribe(): Promise<boolean> {
+    if (!this.isPushMessagingAvailable()) {
+      return Promise.reject("Push messaging isn't supported.");
+    }
     const perm = await this.getPermission();
     if (perm === "granted") {
       this.updateSubscribed(true);
@@ -327,6 +341,9 @@ export default abstract class BaseSDK implements ISDK {
    * Returned the subscription state based on the subscribed flag and permissions
    */
   public async getSubscriptionState(): Promise<ISubscriptionState> {
+    if (!this.isPushMessagingAvailable()) {
+      return Promise.reject("Push messaging isn't supported.");
+    }
     return {
       permission: await this.getPermission(),
       subscribed: await this.isSubscribed(),

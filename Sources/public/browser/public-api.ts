@@ -16,31 +16,6 @@ import { IUIComponent } from "./ui/base-component";
 const logModuleName = "public-api";
 const RUNS_ON_ORIGIN = true;
 
-enum TypedEventAttributeType {
-  STRING = "s",
-  BOOLEAN = "b",
-  INTEGER = "i",
-  FLOAT = "f",
-  DATE = "t",
-  URL = "u",
-  ARRAY = "a",
-  OBJECT = "o",
-}
-
-enum UserAttributeType {
-  STRING = "s",
-  BOOLEAN = "b",
-  INTEGER = "i",
-  FLOAT = "f",
-  DATE = "t",
-  URL = "u",
-  ARRAY = "a",
-}
-enum BatchEmailSubscriptionState {
-  SUBSCRIBED = "subscribed",
-  UNSUBSCRIBED = "unsubscribed",
-}
-
 export default function newPublicAPI(): BatchSDK.IPublicAPI {
   /**
    * Original configuration the developer called 'setup' with
@@ -242,17 +217,15 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
            * because we don't want the setup to depends on the ui.
            *
            * Though, we want (for future use) the last subscription state to
-           * be available as soon as the the sdk is setup.
+           * be available as soon as the sdk is setup.
            */
-
-          const subPromise = sdk.getSubscriptionState();
-
           uiReady
             .catch(e => Log.warn(logModuleName, "Error while initializing the ui :", e))
-            .then(() => subPromise)
-            .then(state => LocalEventBus.emit(LocalSDKEvent.UiReady, state, false));
+            .then(() => sdk.getSubscriptionState())
+            .then(state => LocalEventBus.emit(LocalSDKEvent.UiReady, state, false))
+            .catch(e => Log.warn(logModuleName, e));
         })
-        .catch(e => Log.error(logModuleName, "Error while initiliazing batch SDK :", e));
+        .catch(e => Log.error(logModuleName, "Error while initializing batch SDK :", e));
     },
 
     /**
@@ -364,8 +337,8 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
      * Listen to events api events
      * @public
      */
-    on: (eventCode: LocalSDKEvent, callback: (api: BatchSDK.IPublicAPI, detail: unknown, event: Evt) => void) => {
-      eventBus.subscribe(eventCode, (detail: unknown, evt: Evt) => callback(api, detail, evt));
+    on: (eventCode: BatchSDK.SDKEvent, callback: (api: BatchSDK.IPublicAPI, detail: unknown, event: Evt) => void) => {
+      eventBus.subscribe(eventCode as unknown as LocalSDKEvent, (detail: unknown, evt: Evt) => callback(api, detail, evt));
     },
 
     /**
@@ -375,9 +348,8 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
      */
     trackEvent: (name: string, params?: BatchSDK.EventDataParams) => getInstance().then(sdk => sdk.trackEvent(name, params)),
 
-    eventAttributeTypes: Object.freeze(TypedEventAttributeType),
-    userAttributeTypes: Object.freeze(UserAttributeType),
-    emailSubscriptionStates: Object.freeze(BatchEmailSubscriptionState),
+    eventAttributeTypes: Object.freeze(BatchSDK.TypedEventAttributeType),
+    userAttributeTypes: Object.freeze(BatchSDK.UserAttributeType),
 
     getUserAttributes: async () => getInstance().then(sdk => sdk.getUserAttributes()),
 

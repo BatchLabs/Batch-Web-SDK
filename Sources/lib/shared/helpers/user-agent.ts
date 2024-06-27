@@ -93,6 +93,9 @@ export class UserAgent {
       // But we don't care since none of them will have push support
       this.browser = Browser.Generic;
       this.platform = Platform.IOS;
+      if (this.uaContains("Safari/")) {
+        this.browser = Browser.Safari;
+      }
       return;
     }
 

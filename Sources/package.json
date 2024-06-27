@@ -1,17 +1,14 @@
 {
-  "scripts" : {
-    "build" : "yarn type-check && yarn build-webpack",
-    "doc" : "cd src\/public\/types\/ && typedoc --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
-    "test" : "jest",
-    "lint" : "eslint --no-fix \"src\/**\"",
-    "type-check" : "tsc --build",
-    "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
-    "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
+  "name" : "batch-webpush-sdk",
+  "repository" : {
+
   },
-  "license" : "Proprietary",
-  "private" : true,
-  "version" : "4.0.0",
   "packageManager" : "yarn@3.2.0",
+  "main" : "index.js",
+  "devDependencies" : {
+    "@playwright\/test" : "^1.39.0",
+    "eslint-plugin-playwright" : "^0.18.0"
+  },
   "dependencies" : {
     "typescript" : "4.2",
     "node-fetch" : "2.6.6",
@@ -66,14 +63,17 @@
     "typedoc" : "^0.21.9",
     "eslint-config-airbnb-base" : "^14.2.1"
   },
-  "main" : "index.js",
-  "repository" : {
-
+  "scripts" : {
+    "build" : "yarn type-check && yarn build-webpack",
+    "doc" : "cd src\/public\/types\/ && typedoc --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
+    "test" : "jest",
+    "lint" : "eslint --no-fix \"src\/**\"",
+    "type-check" : "tsc --build",
+    "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
+    "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
   },
+  "license" : "Proprietary",
+  "private" : true,
   "majorVersion" : "4",
-  "name" : "batch-webpush-sdk",
-  "devDependencies" : {
-    "@playwright\/test" : "^1.39.0",
-    "eslint-plugin-playwright" : "^0.18.0"
-  }
+  "version" : "4.1.0"
 }

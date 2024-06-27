@@ -75,7 +75,7 @@ const webpackConfig = {
     sourceMapFilename: "[name].map",
   },
   resolve: {
-    extensions: [".ts", ".js"],
+    extensions: [".ts", ".js", ".d.ts"],
     alias: {
       "com.batch.dom": path.resolve(__dirname, "src/lib/dom"),
       "com.batch.shared": path.resolve(__dirname, "src/lib/shared"),

@@ -5,17 +5,15 @@ import { UserAttributeType } from "../lib/shared/profile/user-data-types";
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/user-data");
 
-import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";
 import { UserDataPersistence } from "com.batch.shared/persistence/user-data";
 
+import { TestSDK } from "../__mocks__/sdk";
 import { ProfileAttributeType } from "../lib/shared/profile/profile-data-types";
 
 // Required mock, JSDOM doesn't support Notification
 window.Notification = {
   permission: "granted",
 } as any;
-
-class TestSDK extends BaseSdk {}
 
 let sdk: TestSDK;
 

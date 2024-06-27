@@ -25,6 +25,10 @@ if (IS_DEV || self.batchSDK_enable_debug_logging === true) {
   Log.enableModule("*");
 }
 
+if (!self.isSecureContext) {
+  Log.publicError("ServiceWorker is not a secure context. Batch will not work as expected.");
+}
+
 const moduleName = "ServiceWorker";
 
 const broadcast = (message: unknown): void => {

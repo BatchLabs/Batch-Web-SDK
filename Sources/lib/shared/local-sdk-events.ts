@@ -22,7 +22,7 @@ enum LocalSDKEvent {
 
   /**
    * Triggered when the subscription changed
-   * The subsription state is given as detail
+   * The subscription state is given as detail
    */
   SubscriptionChanged = "subscriptionChanged",
 

@@ -38,10 +38,6 @@ export class StandardSDK extends BaseSDK implements ISDK {
       throw new Error("no service worker");
     }
 
-    if (!("PushManager" in window)) {
-      throw new Error("Push messaging isn't supported.");
-    }
-
     if (!sdkConfig.vapidPublicKey) {
       throw new Error("Invalid public key");
     }
@@ -143,6 +139,10 @@ export class StandardSDK extends BaseSDK implements ISDK {
     }
     Log.debug(logModuleName, "Invalid subscription, sanitizing. (", subscription + ")");
     return;
+  }
+
+  protected isPushMessagingAvailable(): boolean {
+    return "PushManager" in window;
   }
 
   //#region Public API

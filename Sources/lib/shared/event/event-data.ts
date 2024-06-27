@@ -12,7 +12,8 @@ import objectDepth from "com.batch.shared/helpers/object-depth";
 import { isArray, isBoolean, isDate, isFloat, isNumber, isString, isURL } from "com.batch.shared/helpers/primitive";
 import { isTypedEventAttributeValue } from "com.batch.shared/helpers/typed-attribute";
 import { Log } from "com.batch.shared/logger";
-import type { BatchSDK } from "public/types/public-api";
+
+import { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Event Data";
 
@@ -265,7 +266,7 @@ export class EventData {
           }
           // Check if we have an array of objects (no typed attribute)
           if (value.length > 0 && isObjectArray(value)) {
-            return value.map(obj => this.getAttributes(obj));
+            return value.map(obj => this.getAttributes(obj as BatchSDK.EventDataAttributeType));
           }
           // Simple string array
           if (value.length > 0 && isStringArray(value)) {
@@ -287,7 +288,7 @@ export class EventData {
             );
             return;
           }
-          return { ...this.getAttributes(value) };
+          return { ...this.getAttributes(value as BatchSDK.EventDataAttributeType) };
         }
         Log.warn(
           logModuleName,
@@ -386,7 +387,7 @@ export class EventData {
         );
         return;
       }
-      attribute[`${key.toLowerCase()}.${TypedEventAttributeType.OBJECT}`] = this.getAttributes(value);
+      attribute[`${key.toLowerCase()}.${TypedEventAttributeType.OBJECT}`] = this.getAttributes(value as BatchSDK.EventDataAttributeType);
       return attribute;
     }
     Log.warn(`No type corresponding to this value ${value}. Ignoring attribute ${key}`);

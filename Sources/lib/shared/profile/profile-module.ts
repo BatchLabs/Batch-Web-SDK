@@ -18,6 +18,8 @@ import { UserDataStorage } from "com.batch.shared/profile/user-data-storage";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
 import { IWebserviceExecutor } from "com.batch.shared/webservice/executor";
 
+import { BatchSDK } from "../../../public/types/public-api";
+
 const logModuleName = "Profile";
 
 export class ProfileModule implements BatchSDK.IProfile {
