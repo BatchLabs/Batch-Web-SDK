@@ -1,14 +1,7 @@
 {
   "name" : "batch-webpush-sdk",
-  "repository" : {
-
-  },
-  "packageManager" : "yarn@3.2.0",
-  "main" : "index.js",
-  "devDependencies" : {
-    "@playwright\/test" : "^1.39.0",
-    "eslint-plugin-playwright" : "^0.18.0"
-  },
+  "majorVersion" : "4",
+  "license" : "Proprietary",
   "dependencies" : {
     "typescript" : "4.2",
     "node-fetch" : "2.6.6",
@@ -72,8 +65,15 @@
     "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
     "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
   },
-  "license" : "Proprietary",
-  "private" : true,
-  "majorVersion" : "4",
-  "version" : "4.1.0"
+  "version" : "4.1.1",
+  "packageManager" : "yarn@3.2.0",
+  "devDependencies" : {
+    "@playwright\/test" : "^1.39.0",
+    "eslint-plugin-playwright" : "^0.18.0"
+  },
+  "repository" : {
+
+  },
+  "main" : "index.js",
+  "private" : true
 }

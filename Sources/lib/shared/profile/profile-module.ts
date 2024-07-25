@@ -118,7 +118,7 @@ export class ProfileModule implements BatchSDK.IProfile {
   private async onExitedProbation(param: { type: ProbationType }): Promise<void> {
     if (param.type === ProbationType.Profile) {
       Log.debug(logModuleName, "User is out of profile probation, sending data.");
-      this.migrateInstallDataToProfile();
+      await this.migrateInstallDataToProfile();
     }
   }
 
@@ -140,7 +140,7 @@ export class ProfileModule implements BatchSDK.IProfile {
         } else {
           // User already logged-in, send identify event
           Log.debug(logModuleName, "Automatic profile identification.");
-          this.sendIdentifyEvent(customId);
+          await this.sendIdentifyEvent(customId);
         }
       }
 
@@ -149,7 +149,7 @@ export class ProfileModule implements BatchSDK.IProfile {
         Log.debug(logModuleName, "Custom data migration has been explicitly disabled.");
       } else {
         Log.debug(logModuleName, "Automatic profile data migration.");
-        this.migrateInstallDataToProfile();
+        await this.migrateInstallDataToProfile();
       }
     }
   }
@@ -247,7 +247,7 @@ export class ProfileModule implements BatchSDK.IProfile {
     const customAttributes = await dataWriter.applyCustomOperations(operations);
 
     // Install-based compatibility
-    this.userCompatModule.applyInstallOperations(operations);
+    await this.userCompatModule.applyInstallOperations(operations);
 
     // Send profile data changed event
     const event = new ProfileEventBuilder().withCustomAttributes(customAttributes).withNativeAttributes(nativeAttributes).build();
@@ -265,13 +265,17 @@ export class ProfileModule implements BatchSDK.IProfile {
     const definedIdentifier = typeof identifier === "undefined" ? null : identifier;
     const parameterStore = await this.getParameterStore();
     const idChanged = await parameterStore.setOrRemoveParameterValueIfChanged(keysByProvider.profile.CustomIdentifier, definedIdentifier);
+
+    // Send profile identify event
+    await this.sendIdentifyEvent(definedIdentifier);
     if (idChanged) {
-      this.userCompatModule.notifyInstallDataChanged(definedIdentifier);
+      // Send install data changed compat event
+      await this.userCompatModule.notifyInstallDataChanged(definedIdentifier);
       if (definedIdentifier) {
+        // Check if profile is now out of probation
         await this.probationManager.onUserLoggedIn();
       }
     }
-    this.sendIdentifyEvent(definedIdentifier);
     return definedIdentifier;
   }
 

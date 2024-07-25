@@ -2,12 +2,15 @@
 /* eslint-disable @typescript-eslint/camelcase */
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";
+import { EventData } from "com.batch.shared/event/event-data";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import EventTracker from "com.batch.shared/event/event-tracker";
+import { PublicEvent } from "com.batch.shared/event/public-event";
+import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
 import { Delay } from "com.batch.shared/helpers/timed-promise";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent from "com.batch.shared/local-sdk-events";
-import { ProbationManager } from "com.batch.shared/managers/probation-manager";
+import { ProbationManager, ProbationType } from "com.batch.shared/managers/probation-manager";
 import { ProfileKeys } from "com.batch.shared/parameters/keys.profile";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
 import { IndexedDbMemoryMock } from "com.batch.shared/persistence/__mocks__/indexed-db-memory-mock";
@@ -16,6 +19,7 @@ import { UserDataPersistence } from "com.batch.shared/persistence/user-data";
 import { ProfileAttributeEditor } from "com.batch.shared/profile/profile-attribute-editor";
 import { ProfileModule } from "com.batch.shared/profile/profile-module";
 import { MockWebserviceExecutor } from "com.batch.shared/test-utils/mock-webservice-executor";
+import { IWebserviceExecutor } from "com.batch.shared/webservice/executor";
 
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/user-data");
@@ -23,12 +27,24 @@ jest.mock("com.batch.shared/event/event-tracker");
 
 const webserviceExecutor = new MockWebserviceExecutor({ action: "OK" });
 
-async function initProfileModule(): Promise<{ profileModule: ProfileModule; eventTracker: EventTracker }> {
+class MockedEventTracker extends EventTracker {
+  public track: (event: ISerializableEvent) => void;
+  public events: ISerializableEvent[] = [];
+
+  public constructor(webserviceExecutor: IWebserviceExecutor) {
+    super(true, webserviceExecutor);
+    this.track = jest.fn((event: ISerializableEvent) => {
+      this.events.push(event);
+    });
+  }
+}
+
+async function initProfileModule(): Promise<{ profileModule: ProfileModule; eventTracker: MockedEventTracker }> {
   const probationManager = new ProbationManager(await ParameterStore.getInstance());
   const persistence = await UserDataPersistence.getInstance();
   const profilePersistence = await ProfilePersistence.getInstance();
   await profilePersistence.setData("di", "test_installation_id");
-  const eventTracker = new EventTracker(true, webserviceExecutor);
+  const eventTracker = new MockedEventTracker(webserviceExecutor);
   return { profileModule: new ProfileModule(probationManager, persistence, webserviceExecutor, eventTracker, null), eventTracker };
 }
 
@@ -473,6 +489,58 @@ describe("Profile Module", () => {
         });
         expect(mockedEventTracker.track).not.toHaveBeenCalledWith(expectedTrackedEvent);
       });
+    });
+  });
+
+  describe("Event order", () => {
+    it("Test events are tracked in right orders", async () => {
+      // Take out of from probation to avoid parasites events
+      const parameterStore = await ParameterStore.getInstance();
+      await parameterStore.setParameterValue(ProfileKeys.ProfileProbation, true);
+
+      // Init profile module
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+
+      // Clear mock
+      eventTracker.events = [];
+
+      await profile.identify({ customId: "test_custom_identifier" });
+      await profile.edit(editor => editor.setEmailAddress("test@batch.com"));
+      eventTracker?.track(new PublicEvent("TEST_EVENT_1", false));
+      await profile.identify(null);
+
+      const expectedIdentifyEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileIdentify,
+        params: {
+          identifiers: {
+            custom_id: "test_custom_identifier",
+            install_id: "test_installation_id",
+          },
+        },
+      });
+      const expectedEditEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileDataChanged,
+        params: { email: "test@batch.com" },
+      });
+      const expectedIdentifyNullEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileIdentify,
+        params: {
+          identifiers: {
+            install_id: "test_installation_id",
+          },
+        },
+      });
+
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedIdentifyEvent);
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedEditEvent);
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedIdentifyNullEvent);
+      expect(eventTracker.events[0].name).toEqual(InternalSDKEvent.ProfileIdentify);
+      expect(eventTracker.events[1].name).toEqual(InternalSDKEvent.InstallNativeDataChanged);
+      expect(eventTracker.events[2].name).toEqual(InternalSDKEvent.ProfileDataChanged);
+      expect(eventTracker.events[3].name).toEqual("E.TEST_EVENT_1");
+      expect(eventTracker.events[4].name).toEqual(InternalSDKEvent.ProfileIdentify);
+      expect(eventTracker.events[5].name).toEqual(InternalSDKEvent.InstallNativeDataChanged);
     });
   });
 });
