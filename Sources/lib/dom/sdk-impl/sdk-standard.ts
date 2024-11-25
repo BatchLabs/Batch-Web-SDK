@@ -228,7 +228,7 @@ export class StandardSDK extends BaseSDK implements ISDK {
       sub = null;
     }
 
-    this.updateSubscription(sub ? sub.toJSON() : null);
+    await this.updateSubscription(sub ? sub.toJSON() : null);
     return super.unsubscribe();
   }
 
@@ -250,7 +250,7 @@ export class StandardSDK extends BaseSDK implements ISDK {
     try {
       const pushManager = await this.getPushManager();
       const sub = await pushManager.getSubscription();
-      return this.updateSubscription(sub ? sub.toJSON() : null);
+      return await this.updateSubscription(sub ? sub.toJSON() : null);
     } catch (e) {
       Log.warn(logModuleName, "get subscription failed, reading it from the database. error:", e);
       return super.getSubscription();

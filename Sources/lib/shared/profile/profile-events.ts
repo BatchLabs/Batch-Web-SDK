@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/camelcase */
 import Event from "com.batch.shared/event/event";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import { isSet } from "com.batch.shared/helpers/primitive";

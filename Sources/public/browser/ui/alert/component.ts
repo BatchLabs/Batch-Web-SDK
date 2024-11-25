@@ -221,7 +221,7 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
     this.redraw(state);
 
     if (this.conf.autoShow) {
-      this.show();
+      void this.show();
     }
 
     doc
@@ -332,14 +332,14 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
 
   public resetAndShow(): void {
     this.reset();
-    this.show(true);
+    void this.show(true);
   }
 
   public toggle(): void {
     if (this.isShown()) {
       this.hide();
     } else {
-      this.show();
+      void this.show();
     }
   }
 
@@ -402,7 +402,7 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
         if (ENABLE_LOGS) {
           console.debug("Batch Alert: got subscribe result, success:", success, " state: ", state);
         }
-        Delay(700)
+        void Delay(700)
           .then(() => this.stopLoading())
           .then(() => {
             if (success) {

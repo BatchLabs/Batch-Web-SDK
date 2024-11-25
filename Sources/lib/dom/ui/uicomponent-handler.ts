@@ -73,21 +73,21 @@ export class UIComponent {
   // ----------------------------------->
 
   /**
-   * Detemrines whether the component is ready
+   * Determines whether the component is ready
    */
   public ready(): boolean {
     return this.component != null;
   }
 
   /**
-   * Determines whether the component is intialized
+   * Determines whether the component is initialized
    */
   public initialized(): boolean {
     return this.promise != null;
   }
 
   /**
-   * Determines whether we're currently intializing the component
+   * Determines whether we're currently initializing the component
    */
   public intializing(): boolean {
     return this.initialized() && !this.ready();
@@ -123,11 +123,13 @@ export class UIComponent {
       });
 
     // emit events
-    this.promise.then(() => {
-      if (this.success) {
-        LocalEventBus.emit(LocalSDKEvent.UiComponentReady, { code: this.code, component: this.component }, false);
-      }
-    });
+    this.promise
+      .then(() => {
+        if (this.success) {
+          LocalEventBus.emit(LocalSDKEvent.UiComponentReady, { code: this.code, component: this.component }, false);
+        }
+      })
+      .catch(e => Log.warn(logModuleName, "Error while initializing the component", this.code, e));
 
     return this.promise;
   }
@@ -165,7 +167,7 @@ export class UIComponentHandler {
 
   private onHashChanged(args: IHashChangedEventArgs): void {
     if (args.hash === "#_batchsdk_show_identifiers") {
-      this.showPublicIdentifiers();
+      void this.showPublicIdentifiers();
     }
   }
 
@@ -187,7 +189,7 @@ export class UIComponentHandler {
     this.components.set(code, component);
 
     if (this.config != null) {
-      component.init(this.config[code] || {});
+      void component.init(this.config[code] || {});
     }
 
     return component;

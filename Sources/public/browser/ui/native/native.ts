@@ -33,7 +33,7 @@ class NativeRequest {
 
   public draw(_: ISubscriptionState): void {
     if (this.conf.autoShow) {
-      this.show();
+      void this.show();
     }
   }
 
@@ -42,7 +42,7 @@ class NativeRequest {
       // There is no "decide later" on safari, so having a cooldown is not needed
       // We also should not call Notification.requestPermission() as it shows a different
       // prompt. So, on Safari, bypass everything and let the SDK deal with it.
-      this.api.subscribe();
+      void this.api.subscribe();
       return;
     }
 
@@ -50,7 +50,7 @@ class NativeRequest {
     const now = Math.round(new Date().getTime() / 1000);
 
     if (Notification.permission === Permission.Granted) {
-      this.api.subscribe();
+      void this.api.subscribe();
     } else if (Notification.permission !== Permission.Denied) {
       if (force || !dismissed || this.conf.backoffDuration === 0 || now - dismissed > this.conf.backoffDuration) {
         const permission = await Notification.requestPermission();
@@ -58,7 +58,7 @@ class NativeRequest {
           // No matter what the user answered, write the last shown on promise
           window.localStorage.setItem(LSKEY, Math.round(new Date().getTime() / 1000) + "");
           if (permission === Permission.Granted) {
-            this.api.subscribe();
+            void this.api.subscribe();
           }
         }
       }

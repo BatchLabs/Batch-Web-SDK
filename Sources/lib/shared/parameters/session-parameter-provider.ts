@@ -33,8 +33,7 @@ class SessionParameterProvider implements IParameterProvider<string> {
 
   public removeParameterForKey(key: string): Promise<void> {
     if (allowedKeyByProvider.session.indexOf(key) !== -1) {
-      this.storage.removeData(KEY_PREFIX + key);
-      return Promise.resolve();
+      return this.storage.removeData(KEY_PREFIX + key);
     }
     return Promise.reject(new BatchError(`Cannot delete ${key}: it is not a managed session key`));
   }

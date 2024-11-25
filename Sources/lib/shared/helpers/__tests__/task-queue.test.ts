@@ -93,9 +93,12 @@ describe("Task Queue", () => {
       lastTask = taskQueue.postAsync(() => {
         actual.push(i);
         return new Promise(resolve => {
-          setTimeout(() => {
-            resolve(undefined);
-          }, Math.ceil(Math.random() * 45));
+          setTimeout(
+            () => {
+              resolve(undefined);
+            },
+            Math.ceil(Math.random() * 45)
+          );
         });
       });
     }
@@ -107,7 +110,6 @@ describe("Task Queue", () => {
   it("should chain tasks even if they're erroring", async () => {
     // We need to stop errored promises from bubbling as this will make the test fail
     const postCaughtPromise = (promise: any): any => {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
       taskQueue.postAsync(promise).catch(() => {});
     };
 

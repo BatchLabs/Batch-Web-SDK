@@ -52,7 +52,7 @@ export default abstract class BaseSDK implements ISDK {
   }
   private onProbationChanged(param: { type: ProbationType }): void {
     if (param.type === ProbationType.Push) {
-      Log.info(logModuleName, InternalSDKEvent.FirstSubscription + "event sent");
+      Log.info(logModuleName, InternalSDKEvent.FirstSubscription + " event sent");
       this.eventTracker?.track(new Event(InternalSDKEvent.FirstSubscription));
     }
   }
@@ -91,7 +91,7 @@ export default abstract class BaseSDK implements ISDK {
       const lastConfig = await parameterStore.getParameterValue<IPrivateBatchSDKConfiguration>(keysByProvider.profile.LastConfiguration);
       // Remove un-persistable config objects
       delete configClone.internalTransient;
-      parameterStore.setParameterValue(keysByProvider.profile.LastConfiguration, configClone);
+      await parameterStore.setParameterValue(keysByProvider.profile.LastConfiguration, configClone);
 
       /**
        * Init installation id
@@ -99,10 +99,10 @@ export default abstract class BaseSDK implements ISDK {
       try {
         const installationID = await parameterStore.getParameterValue(keysByProvider.profile.InstallationID);
         if (installationID == null) {
-          this.createInstallationID();
+          await this.createInstallationID();
         }
       } catch (e) {
-        this.createInstallationID();
+        await this.createInstallationID();
       }
 
       /**
@@ -275,7 +275,8 @@ export default abstract class BaseSDK implements ISDK {
       return Promise.reject("Push messaging isn't supported.");
     }
     const permission = await this.getPermission();
-    if (permission !== "granted" || !(await this.readAndCheckSubscribed())) {
+    const { subscribed } = await this.readAndCheckSubscription();
+    if (permission !== "granted" || !subscribed) {
       return false;
     }
     return this.getSubscription().then(sub => sub != null);
@@ -312,7 +313,7 @@ export default abstract class BaseSDK implements ISDK {
     }
     const perm = await this.getPermission();
     if (perm === "granted") {
-      this.updateSubscribed(true);
+      await this.updateSubscribed(true);
       return this.isSubscribed();
     }
     throw new Error("Permission denied");
@@ -333,8 +334,9 @@ export default abstract class BaseSDK implements ISDK {
    *
    * @return Promise<any>
    */
-  public getSubscription(): Promise<unknown | null | undefined> {
-    return this.readAndCheckSubscription();
+  public async getSubscription(): Promise<unknown | null | undefined> {
+    const { subscription } = await this.readAndCheckSubscription();
+    return subscription;
   }
 
   /**
@@ -406,43 +408,43 @@ export default abstract class BaseSDK implements ISDK {
   }
 
   /**
-   * Read the subscribed flag and check if something changed
+   * Read the subscription and the state in database and check if something changed
    */
-  public async readAndCheckSubscribed(): Promise<boolean> {
-    let sub = await (await this.getParameterStore()).getParameterValue<boolean>(keysByProvider.profile.Subscribed);
-    sub = sub === true; // Sanitize
-    const last = this.lastSubscribed;
-    // check if the subscription changed
-    if (last !== sub) {
-      Log.info(logModuleName, "Subscribed updated from " + last + " to " + sub);
-      this.lastSubscribed = sub;
-      this.subscriptionChanged(true);
-    }
-    return sub;
-  }
+  public async readAndCheckSubscription(): Promise<{ subscribed: boolean; subscription: unknown }> {
+    let subscriptionHasChanged = false;
 
-  /**
-   * Read the subscription in database and check if something changed
-   */
-  public async readAndCheckSubscription(): Promise<unknown> {
-    let currentSubscription = await (await this.getParameterStore()).getParameterValue<unknown>(keysByProvider.profile.Subscription);
-    currentSubscription = this.sanitizeSubscription(currentSubscription);
+    // Check whether the subscription has changed
+    const parameterStore = await this.getParameterStore();
+    let subscription = await parameterStore.getParameterValue<unknown>(keysByProvider.profile.Subscription);
+    subscription = this.sanitizeSubscription(subscription);
     const lastSubscription = this.lastSubscription;
-
-    if (this.hasSubscriptionChanged(currentSubscription, lastSubscription)) {
-      Log.info(logModuleName, "Subscription updated", currentSubscription);
-      this.lastSubscription = currentSubscription;
-      this.subscriptionChanged(true);
+    if (this.hasSubscriptionChanged(subscription, lastSubscription)) {
+      Log.info(logModuleName, "Subscription updated", subscription);
+      this.lastSubscription = subscription;
+      subscriptionHasChanged = true;
     }
 
-    return currentSubscription;
+    // Check whether the subscription state has changed
+    let subscribed = await parameterStore.getParameterValue<boolean>(keysByProvider.profile.Subscribed);
+    subscribed = subscribed === true; // Sanitize
+    const lastSubscribed = this.lastSubscribed;
+    if (lastSubscribed !== subscribed) {
+      Log.info(logModuleName, "Subscribed updated from " + lastSubscribed + " to " + subscribed);
+      this.lastSubscribed = subscribed;
+      subscriptionHasChanged = true;
+    }
+    // Trigger sub/unsub event if subscription has changed
+    if (subscriptionHasChanged) {
+      await this.subscriptionChanged(true);
+    }
+    return { subscription, subscribed };
   }
 
   // check if the subscription changed
   protected hasSubscriptionChanged = (current: unknown, last: unknown): boolean => {
     if (current === last) return false;
     if (current == null || last == null) return true;
-    if (current === typeof Object && last === typeof Object) {
+    if (typeof current === "object" && typeof last === "object") {
       if ((current as PushSubscriptionJSON)?.endpoint != (last as PushSubscriptionJSON)?.endpoint) return true;
     }
     return false;
@@ -454,9 +456,9 @@ export default abstract class BaseSDK implements ISDK {
    */
   public async updateSubscribed(subscribed: boolean): Promise<boolean> {
     const parameterStore = await this.getParameterStore();
-    parameterStore.setParameterValue(keysByProvider.profile.Subscribed, subscribed);
     Log.debug(logModuleName, "Writing subscribed:", subscribed);
-    return this.readAndCheckSubscribed();
+    await parameterStore.setParameterValue(keysByProvider.profile.Subscribed, subscribed);
+    return (await this.readAndCheckSubscription()).subscribed;
   }
 
   /**
@@ -473,11 +475,11 @@ export default abstract class BaseSDK implements ISDK {
     }
 
     if (typeof subscribed === "boolean") {
-      parameterStore.setParameterValue(keysByProvider.profile.Subscribed, subscribed);
       Log.debug(logModuleName, "Writing subscribed:", subscribed);
+      await parameterStore.setParameterValue(keysByProvider.profile.Subscribed, subscribed);
     }
 
-    return this.readAndCheckSubscription();
+    return (await this.readAndCheckSubscription()).subscription;
   }
 
   /**
@@ -488,7 +490,7 @@ export default abstract class BaseSDK implements ISDK {
     const last = this.lastPermission;
     if (last !== perm) {
       this.lastPermission = perm;
-      this.subscriptionChanged(false);
+      await this.subscriptionChanged(false);
     }
     return perm;
   }

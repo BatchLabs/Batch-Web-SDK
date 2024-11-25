@@ -21,9 +21,7 @@ export class BaseComponent<IComponentConfig> implements IUIComponent {
     this.conf = config;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   public hide(): void {}
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   public show(_force: boolean): void {}
 }

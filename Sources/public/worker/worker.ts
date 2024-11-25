@@ -12,8 +12,13 @@ import NotificationReceiver from "com.batch.worker/notification-receiver";
 
 import { IS_DEV } from "../../config";
 
+// Define type PushSubscriptionChangeEvent since it was removed from lib.webworker in typescript 4.3
+interface PushSubscriptionChangeEvent extends ExtendableEvent {
+  readonly newSubscription: PushSubscription | null;
+  readonly oldSubscription: PushSubscription | null;
+}
+
 declare let self: BatchServiceWorkerGlobalScope;
-// eslint-disable-next-line @typescript-eslint/interface-name-prefix
 interface BatchServiceWorkerGlobalScope extends ServiceWorkerGlobalScope {
   batchSDK_enable_debug_logging?: boolean;
   handleBatchSDKEvent?: (eventName: string, event: Event) => Promise<void>;
@@ -78,7 +83,6 @@ const getEventTracker = (): Promise<EventTracker> => {
       Log.debug(moduleName, "Loaded config", db, config);
 
       if (!db || typeof config !== "object") {
-        // eslint-disable-next-line max-len
         throw new Error(
           "Unexpected error: Invalid promise result. ParameterStore and getLastKnownGoodConfiguration should not be undefined or null"
         );
@@ -93,7 +97,7 @@ const getEventTracker = (): Promise<EventTracker> => {
     })
     .catch(e => {
       // TODO: Fix this eslint disable, can we break the error string?
-      // eslint-disable-next-line max-len
+
       Log.error(
         moduleName,
         "Error while getting the WS executor with the real configuration. Returning an event tracker with a stub executor. Error:",
@@ -186,8 +190,6 @@ const pushSubscriptionChanged = (event: PushSubscriptionChangeEvent): Promise<vo
               await db.setParameterValue(ProfileKeys.Subscribed, true);
               await db.setParameterValue(ProfileKeys.Subscription, sub.toJSON());
               const eventTracker = await getEventTracker();
-
-              // eslint-disable-next-line @typescript-eslint/camelcase
               const params: { [key: string]: unknown } = { from_change_event: true, token: { protocol: "WPP", subscription: sub } };
               if (config.internal && config.internal.referrer) {
                 params.referrer = config.internal.referrer;

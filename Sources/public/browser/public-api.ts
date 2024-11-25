@@ -205,7 +205,7 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
           // init ui components
           const uiReady = uiComponents.init(uiConfig || {});
 
-          sdk.getInstallationID().then(iid => {
+          void sdk.getInstallationID().then(iid => {
             if (sdkConfig.dev) {
               Log.public("Installation ID: " + (iid || "unknown"));
             }

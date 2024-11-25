@@ -256,7 +256,6 @@ export class DOMElement {
     return this;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public listenTo(evt: AnyEvent, callback: EventListenerOrEventListenerObject): DOMElement {
     if (evt != null && callback != null) {
       this.wrapped.forEach(e => e.addEventListener(evt as string, callback));
@@ -455,7 +454,6 @@ export class DOMElement {
       }
     }
 
-    // eslint-disable-next-line no-use-before-define
     return DOMElement.EMPTY;
   }
 }

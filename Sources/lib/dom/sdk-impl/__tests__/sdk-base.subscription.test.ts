@@ -87,3 +87,13 @@ it("sanitizes the last subscription on start", async () => {
 
   expect(safariSDK["sanitizeSubscription"]).toHaveBeenCalled();
 });
+
+it("test hasSubscriptionChanged", async () => {
+  const standardSDK = new StandardSDK();
+  const last = {"endpoint":"testlast","expirationTime":null,"keys":{"p256dh":"osef","auth":"osef2"}}
+  const current = {"endpoint":"testcurrent","expirationTime":null,"keys":{"p256dh":"osef","auth":"osef2"}}
+  expect(standardSDK["hasSubscriptionChanged"](last, last)).toBeFalsy()
+  expect(standardSDK["hasSubscriptionChanged"](last, current)).toBeTruthy()
+  expect(standardSDK["hasSubscriptionChanged"](null, current)).toBeTruthy()
+  expect(standardSDK["hasSubscriptionChanged"](last, null)).toBeTruthy()
+});

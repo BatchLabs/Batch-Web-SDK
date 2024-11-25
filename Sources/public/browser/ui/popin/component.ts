@@ -314,7 +314,6 @@ export default class Popin extends BaseComponent<IPopinConfig> {
         notificationImageElem.src = confExampleImgSrc;
         // .style doesn't support SVGElements
         this.container.selectOne(selectors.notificationImgPlaceholder).wrapped.forEach((e: HTMLImageElement) => {
-          // eslint-disable-next-line
           e.style.display = "none";
         });
       }
@@ -350,7 +349,7 @@ export default class Popin extends BaseComponent<IPopinConfig> {
 
     p.then(
       success => {
-        Delay(700)
+        void Delay(700)
           .then(() => this.stopLoading())
           .then(() => {
             if (success) {

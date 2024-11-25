@@ -127,7 +127,7 @@ export class SafariSDK extends BaseSDK implements ISDK {
       if (!subscription || subscription !== remotePermission.deviceToken) {
         const newSubscription = remotePermission.deviceToken;
         if (newSubscription) {
-          this.updateSubscription(newSubscription, true);
+          await this.updateSubscription(newSubscription, true);
         }
         return this.isSubscribed();
       }
@@ -157,7 +157,7 @@ export class SafariSDK extends BaseSDK implements ISDK {
     try {
       const response: void | ResponseDiagnostic = await Promise.race([this.fetchDiagnostics(), Timeout(10000)]);
       if (!response) throw new Error("Invalid diagnostics server response");
-      if (response.status === "FAIL") return Log.publicError("[Diagnostics] " + response?.error ?? "Unknown server error");
+      if (response.status === "FAIL") return Log.publicError("[Diagnostics] " + (response?.error ?? "Unknown server error"));
       if (response.status === "OK") return Log.info(logModuleName, "User has denied permission");
     } catch (err) {
       Log.publicError("[Diagnostics] Cannot diagnose registration issue: Internal server error");
@@ -252,7 +252,7 @@ export class SafariSDK extends BaseSDK implements ISDK {
         return null;
       } else if (permission == Permission.Denied && window.Notification.permission !== Permission.Denied) {
         Log.info(logModuleName, "Unknown state: requesting diagnostics");
-        this.printDiagnostics();
+        void this.printDiagnostics();
         return null;
       } else if (permission === Permission.Granted) {
         Log.info(logModuleName, "User granted permission");

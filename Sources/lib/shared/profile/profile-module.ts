@@ -83,7 +83,7 @@ export class ProfileModule implements BatchSDK.IProfile {
     this.eventTracker = eventTracker;
     this.sdkConfiguration = config;
     this.userDataStorage = new UserDataStorage(persistence);
-    this.userDataStorage.migrateTagsIfNeeded();
+    void this.userDataStorage.migrateTagsIfNeeded();
     this.probationManager = probationManager;
     this.userCompatModule = new UserCompatModule(probationManager, webserviceExecutor, this.userDataStorage, eventTracker);
     this.publicProfile = {

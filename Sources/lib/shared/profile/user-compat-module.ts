@@ -169,7 +169,7 @@ export class UserCompatModule {
     }
 
     // Save custom data
-    this.persistCustomAttributes(newCustomAttributes);
+    await this.persistCustomAttributes(newCustomAttributes);
 
     // If we're in probation, version is always 1 as we're not gonna send the attributes
     const isInPushProbation = await this.probationManager.isInPushProbation();
@@ -244,7 +244,7 @@ export class UserCompatModule {
   // Schedule an attribute synchronization with the server.
   // VisibleForTesting
   protected scheduleAttributesSend(): void {
-    this.taskQueue.postAsync(() =>
+    void this.taskQueue.postAsync(() =>
       this.sendAttributes().catch(e => {
         Log.error(logModuleName, "Could not synchronize user data with the server:", e);
       })
@@ -300,7 +300,7 @@ export class UserCompatModule {
 
   // VisibleForTesting
   protected scheduleAttributesCheck(): void {
-    this.taskQueue.postAsync(async () => {
+    void this.taskQueue.postAsync(async () => {
       const lastCheck = await this.dataStorage.getLastCheckTimestamp();
       // Check once every 5 minutes
       if (lastCheck && lastCheck + MIN_ATTRIBUTES_CHECK_INTERVAL_MS >= Date.now()) {
@@ -340,7 +340,7 @@ export class UserCompatModule {
     response.action = response.action.toUpperCase() as typeof response.action;
     switch (response.action) {
       case "OK":
-        this.dataStorage.persistLastCheckTimestamp(Date.now());
+        void this.dataStorage.persistLastCheckTimestamp(Date.now());
         return;
       case "BUMP":
         {
@@ -351,7 +351,7 @@ export class UserCompatModule {
         }
         return;
       case "RESEND":
-        this.resendAttributes();
+        void this.resendAttributes();
         return;
       case "RECHECK":
         // Not implemented on purpose
@@ -366,7 +366,7 @@ export class UserCompatModule {
 
   // VisibleForTesting
   protected scheduleBumpVersion(fromVersion: number, serverVersion: number): void {
-    this.taskQueue.postAsync(() => this.bumpVersion(fromVersion, serverVersion));
+    void this.taskQueue.postAsync(() => this.bumpVersion(fromVersion, serverVersion));
   }
 
   // VisibleForTesting

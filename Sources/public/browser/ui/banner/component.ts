@@ -267,7 +267,7 @@ export default class Banner extends BasePopinComponent<IBannerConfig> {
 
     p.then(
       success => {
-        Delay(700)
+        void Delay(700)
           .then(() => this.stopLoading())
           .then(() => {
             if (success) {

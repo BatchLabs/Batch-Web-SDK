@@ -25,7 +25,6 @@ const selectors = {
   },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface IPublicIdentifiersConfig {
   titleLabel: string;
   isRegisteredLabel: string;
@@ -130,7 +129,7 @@ export default class PublicIdentifiers extends BaseComponent<IPublicIdentifiersC
     if (inputs.length > 0) {
       const value = inputs[0].value;
       if (value && value !== "") {
-        navigator.clipboard.writeText(value);
+        void navigator.clipboard.writeText(value);
       }
     }
     e.preventDefault();

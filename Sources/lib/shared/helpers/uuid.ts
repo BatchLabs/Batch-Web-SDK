@@ -15,18 +15,16 @@ export default function uuid(): string {
     const prngRandomBytes = new Uint8Array(randomNumbers.length);
     self.crypto.getRandomValues(prngRandomBytes);
     for (let i = 0; i < randomNumbers.length; i += 1) {
-      // eslint-disable-next-line no-bitwise
       randomNumbers[i] = prngRandomBytes[i] % 16 | 0;
     }
   } else {
     for (let i = 0; i < randomNumbers.length; i += 1) {
-      // eslint-disable-next-line no-bitwise
       randomNumbers[i] = (Math.random() * 16) | 0;
     }
   }
 
   // The 16th number needs to be ‘8’, ‘9’, ‘A’, or ‘B’. We can bitmask that.
-  // eslint-disable-next-line no-bitwise, no-mixed-operators
+
   randomNumbers[15] = (randomNumbers[15] & 0x3) | 0x8;
 
   let uuidString = "";

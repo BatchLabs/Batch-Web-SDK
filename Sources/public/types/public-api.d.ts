@@ -146,26 +146,6 @@ export namespace BatchSDK {
     | undefined;
 
   /**
-   * Object representing a profile attribute.
-   * An attribute is represented by its type, which matches the one you've used
-   * when setting the attribute, and its value.
-   *
-   * You can get the attribute using the generic getter, or use the typed ones
-   * that will cast the value or return undefined if the type doesn't match.
-   */
-  interface IProfileAttribute {
-    getType(): UserAttributeType;
-    getValue(): unknown;
-
-    getStringValue(): string | undefined;
-    getBooleanValue(): boolean | undefined;
-    getNumberValue(): number | undefined;
-    getDateValue(): Date | undefined;
-    getURLValue(): URL | undefined;
-    getArrayValue(): Array | undefined;
-  }
-
-  /**
    * Batch's Profile Module.
    */
   export interface IProfile {

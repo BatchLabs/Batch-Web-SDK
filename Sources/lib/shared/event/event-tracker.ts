@@ -82,10 +82,10 @@ export default class EventTracker {
         // TODO: Log this, as this eats the WS error
         // TODO: Check the statuscode before retrying? Or should the executor tell more
         // Retry up to X times, and add a minimal delay between attempts
-        // eslint-disable-next-line no-param-reassign
+
         retryCount += 1;
         if (retryCount < RETRY_MAX_ATTEMPTS) {
-          Delay(RETRY_MIN_INTERVAL_MS).then(() => {
+          void Delay(RETRY_MIN_INTERVAL_MS).then(() => {
             this.send(retryCount);
           });
         } else {

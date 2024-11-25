@@ -4,7 +4,10 @@ import { BatchSDK } from "../../../public/types/public-api";
 
 // Class exposed in the Public API (which is why it has a "Batch" name, to differentiate it from the internal type
 export class BatchUserAttribute implements BatchSDK.IUserAttribute {
-  public constructor(private _type: BatchSDK.UserAttributeType, private _value: unknown) {}
+  public constructor(
+    private _type: BatchSDK.UserAttributeType,
+    private _value: unknown
+  ) {}
 
   public getType(): BatchSDK.UserAttributeType {
     return this._type;

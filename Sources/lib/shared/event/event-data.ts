@@ -146,7 +146,8 @@ export class EventData {
   }
 
   private parseTypedEventAttribute(key: string, v: BatchSDK.EventAttributeValue): EventAttributeType | undefined {
-    const { value, type } = v;
+    const type = v.type;
+    const value: unknown = v.value;
     switch (type) {
       case TypedEventAttributeType.URL: {
         if (isURL(value)) {

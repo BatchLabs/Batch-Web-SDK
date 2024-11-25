@@ -28,7 +28,7 @@ export class ProbationManager {
 
   public constructor(parameterStore: ParameterStore) {
     this.parameterStore = parameterStore;
-    this.init();
+    void this.init();
     LocalEventBus.subscribe(LocalSDKEvent.SubscriptionChanged, this.onSubscriptionChanged.bind(this));
   }
 
@@ -74,13 +74,13 @@ export class ProbationManager {
     // If the user is logged (meaning he has a custom user id) then he's out of profile probation
     const hasCustomUserId = await this.parameterStore.getParameterValue<string>(keysByProvider.profile.CustomIdentifier);
     if (hasCustomUserId !== null) {
-      this.takeOutOfProbationFor(ProbationType.Profile);
+      void this.takeOutOfProbationFor(ProbationType.Profile);
     }
 
     // If the user has a push subscription then he's out of probation
     const hasSubscription = await this.parameterStore.getParameterValue(keysByProvider.profile.Subscription);
     if (hasSubscription !== null) {
-      this.takeOutOfProbationFor(ProbationType.Push);
+      void this.takeOutOfProbationFor(ProbationType.Push);
       return;
     }
 
@@ -89,8 +89,8 @@ export class ProbationManager {
     // This code migrates the old key value
     const legacyProbation = await this.parameterStore.getParameterValue(keysByProvider.profile.LegacyProbation);
     if (legacyProbation === true) {
-      this.takeOutOfProbationFor(ProbationType.Push);
-      this.parameterStore.removeParameterValue(keysByProvider.profile.LegacyProbation);
+      void this.takeOutOfProbationFor(ProbationType.Push);
+      void this.parameterStore.removeParameterValue(keysByProvider.profile.LegacyProbation);
     }
   }
 
@@ -122,12 +122,12 @@ export class ProbationManager {
   private async onSubscriptionChanged(state: ISubscriptionState): Promise<void> {
     const currentIsOutOfProbation = await this.isOutOfProbationFor(ProbationType.Push);
     if (state.subscribed && !currentIsOutOfProbation) {
-      this.takeOutOfProbationFor(ProbationType.Push);
+      await this.takeOutOfProbationFor(ProbationType.Push);
       this.triggerLocalEventExitedProbation(ProbationType.Push);
       Log.debug(logModuleName, "exited push probation");
 
       // In this case we take out of probation for profile too
-      this.takeOutOfProbationFor(ProbationType.Profile);
+      await this.takeOutOfProbationFor(ProbationType.Profile);
       this.triggerLocalEventExitedProbation(ProbationType.Profile);
     }
     return;
@@ -141,7 +141,7 @@ export class ProbationManager {
   public async onUserLoggedIn(): Promise<void> {
     const currentIsOutOfProbation = await this.isOutOfProbationFor(ProbationType.Profile);
     if (!currentIsOutOfProbation) {
-      this.takeOutOfProbationFor(ProbationType.Profile);
+      void this.takeOutOfProbationFor(ProbationType.Profile);
       this.triggerLocalEventExitedProbation(ProbationType.Profile);
       Log.debug(logModuleName, "exited profile probation");
     }

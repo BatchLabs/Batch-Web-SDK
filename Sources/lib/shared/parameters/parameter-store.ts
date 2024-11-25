@@ -29,8 +29,8 @@ export default class ParameterStore implements IParameterStore {
 
   public constructor(p: IProviderInstances) {
     this.providers = p;
-    this.systemParameterMayHaveChanged(SystemKeys.DeviceLanguage);
-    this.systemParameterMayHaveChanged(SystemKeys.DeviceTimezone);
+    void this.systemParameterMayHaveChanged(SystemKeys.DeviceLanguage);
+    void this.systemParameterMayHaveChanged(SystemKeys.DeviceTimezone);
   }
 
   /**
@@ -43,7 +43,7 @@ export default class ParameterStore implements IParameterStore {
     const currentValue = await this.getParameterValue(key);
     const oldValue = await this.getParameterValue(profileKey);
     if (oldValue !== currentValue) {
-      await this.setParameterValue(profileKey, currentValue);
+      await this.setParameterValue(profileKey, currentValue as NonNullable<unknown>);
       LocalEventBus.emit(LocalSDKEvent.SystemParameterChanged, { [profileKey]: currentValue }, false);
     }
   }
@@ -120,7 +120,7 @@ export default class ParameterStore implements IParameterStore {
                 .then(() => resolve(true))
                 .catch(reject);
             } else {
-              this.setParameterValue(key, value)
+              this.setParameterValue(key, value as NonNullable<unknown>)
                 .then(() => resolve(true))
                 .catch(reject);
             }
@@ -143,18 +143,20 @@ export default class ParameterStore implements IParameterStore {
   }
 
   public static getInstance(): Promise<ParameterStore> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       if (storeInstance instanceof ParameterStore) {
         resolve(storeInstance);
       } else {
-        ProfilePersistence.getInstance().then(db => {
-          storeInstance = new ParameterStore({
-            profile: new ProfileParameterProvider(db),
-            session: new SessionParameterProvider(new SessionPersistence()),
-            system: new SystemParameterProvider(),
-          });
-          resolve(storeInstance);
-        });
+        ProfilePersistence.getInstance()
+          .then(db => {
+            storeInstance = new ParameterStore({
+              profile: new ProfileParameterProvider(db),
+              session: new SessionParameterProvider(new SessionPersistence()),
+              system: new SystemParameterProvider(),
+            });
+            resolve(storeInstance);
+          })
+          .catch(e => reject(e));
       }
     });
   }

@@ -111,7 +111,7 @@ export default class Switcher extends BasePopinComponent<ISwitcherConfig> {
 
     p.then(
       () => {
-        Delay(200).then(() => this.stopLoading());
+        void Delay(200).then(() => this.stopLoading());
       },
       () => {
         this.stopLoading();

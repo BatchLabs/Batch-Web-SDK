@@ -22,7 +22,6 @@ test("resolves to a type date for da", () => {
 
 test("throws when passing an unknown key", () => {
   return provider.getParameterForKey("toto").then(
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     () => {},
     err => {
       expect(err.message).toBe("toto is not a managed system key");

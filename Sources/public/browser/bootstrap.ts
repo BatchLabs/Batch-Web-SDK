@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 // tslint:disable no-console
 import { Browser, Platform, UserAgent } from "com.batch.shared/helpers/user-agent";
 
@@ -23,7 +22,6 @@ const appendScript = (url: string): void => {
   }
 };
 
-/* eslint-disable @typescript-eslint/no-empty-function */
 const setupBatchSDK = (): void => {
   const dummyConsole = {
     error: (_msg: string) => {},
@@ -31,8 +29,6 @@ const setupBatchSDK = (): void => {
     log: (_msg: string) => {},
   };
   const safeConsole = typeof console === "object" && console !== null ? Object.assign(dummyConsole, console) : dummyConsole;
-
-  /* eslint-enable @typescript-eslint/no-empty-function */
 
   // Yes, we're using any to avoid adding a lot of boilerplate in bootstrap, which should be small
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,7 +81,7 @@ const setupBatchSDK = (): void => {
   } else {
     fetch(`https://${SSL_SCRIPT_URL}/manifest.json`)
       .then(response => {
-        response.json().then(manifest => {
+        void response.json().then(manifest => {
           if (Object.prototype.hasOwnProperty.call(manifest, "latest")) {
             if (Object.prototype.hasOwnProperty.call(manifest.latest, VERSION_MAJOR)) {
               appendScript(`https://${SSL_SCRIPT_URL}/${manifest.latest[VERSION_MAJOR]}/sdk.min.js`);
