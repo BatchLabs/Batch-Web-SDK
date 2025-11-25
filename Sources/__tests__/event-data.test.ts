@@ -145,10 +145,7 @@ describe("Event Data: Attributes", () => {
   it("should not return the attribute when it's longer than 200 characters", () => {
     const { attributes } = new EventData({
       attributes: {
-        key:
-          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosi" +
-          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosiss" +
-          "silicovolcanoconiosis",
+        key: "alongstring".repeat(30),
       },
     });
 
@@ -192,11 +189,8 @@ describe("Event Data: Attributes", () => {
           type: TypedEventAttributeType.STRING,
           value: "value",
         },
-        keyInError:
-          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis" +
-          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis" +
-          "covolcanoconiosisazert",
-        absurdity: {
+        keyInError: "alongstring".repeat(30),
+      absurdity: {
           type: TypedEventAttributeType.STRING,
           value: new Date(),
         },

@@ -29,6 +29,10 @@ const customs: ProfileCustomDataAttributes = {
     type: ProfileAttributeType.STRING,
     value: "label",
   },
+  longstring: {
+    type: ProfileAttributeType.STRING,
+    value: "longstring".repeat(30),
+  },
   count: {
     type: ProfileAttributeType.INTEGER,
     value: 1,
@@ -73,6 +77,7 @@ describe("Profile events", () => {
       expect(event.params).toEqual({
         custom_attributes: {
           "label.s": "label",
+          "longstring.s": "longstring".repeat(30),
           "count.i": 1,
           "price.f": 3.45,
           "website.u": "https://blog.batch.com",
@@ -92,6 +97,7 @@ describe("Profile events", () => {
         region: "FR",
         custom_attributes: {
           "label.s": "label",
+          "longstring.s": "longstring".repeat(30),
           "count.i": 1,
           "price.f": 3.45,
           "website.u": "https://blog.batch.com",

@@ -22,6 +22,19 @@ import { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Profile";
 
+const BLOCKLISTED_CUSTOM_USER_IDS = [
+  "undefined",
+  "null",
+  "nil",
+  "(null)",
+  "[object object]",
+  "true",
+  "false",
+  "nan",
+  "infinity",
+  "-infinity",
+];
+
 export class ProfileModule implements BatchSDK.IProfile {
   /**
    * Old UserModule still used for install-based compat
@@ -198,6 +211,15 @@ export class ProfileModule implements BatchSDK.IProfile {
   public async identify(identifier: { customId?: string } | null | undefined): Promise<BatchSDK.IProfile> {
     if (identifier && identifier.customId && (!isString(identifier.customId) || identifier.customId.length >= 512)) {
       return Promise.reject(new Error("Custom identifier must be a string and can’t be longer than 512 characters."));
+    }
+    if (identifier && identifier.customId && BLOCKLISTED_CUSTOM_USER_IDS.includes(identifier.customId.toLowerCase())) {
+      return Promise.reject(
+        new Error(
+          "Identify method called with a blocklisted identifier: `" +
+            identifier.customId +
+            "`, Please ensure you have correctly implemented the API."
+        )
+      );
     }
     this.customUserId = await this.handleCustomIdChanged(identifier?.customId);
     return this.publicProfile;

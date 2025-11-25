@@ -310,6 +310,15 @@ describe("Profile Module", () => {
         new Error("Custom identifier must be a string and can’t be longer than 512 characters.")
       );
     });
+
+    it("Identify is blocklisted", async () => {
+      const { profileModule } = await initProfileModule();
+      const profile = await profileModule.get();
+      const customId = "undefined";
+      expect(() => profile.identify({ customId })).rejects.toThrow(
+        new Error("Identify method called with a blocklisted identifier: `undefined`, Please ensure you have correctly implemented the API.")
+      );
+    });
   });
 
   describe("Migration Configuration Tests", () => {

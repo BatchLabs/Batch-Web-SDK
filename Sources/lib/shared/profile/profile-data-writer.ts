@@ -1,13 +1,15 @@
 import { Consts } from "com.batch.shared/constants/user";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
-import { isSet } from "com.batch.shared/helpers/primitive";
+import { isSet, isString } from "com.batch.shared/helpers/primitive";
 import { isNativeOperation } from "com.batch.shared/helpers/typed-attribute";
+import { Log } from "com.batch.shared/logger";
 import {
   isPartialUpdateArrayObject,
   ProfileAttributeType,
   ProfileCustomDataAttributes,
   ProfileNativeDataAttribute,
 } from "com.batch.shared/profile/profile-data-types";
+import { isMEPAttributeStringArrayNotValid, isMEPAttributeStringNotValid } from "com.batch.shared/profile/user-compat-helper";
 
 import { IProfileOperation, ProfileDataOperation } from "./profile-attribute-editor";
 
@@ -27,6 +29,33 @@ export default class ProfileDataWriter {
       switch (op.operation) {
         case ProfileDataOperation.SetAttribute:
           {
+            if (
+              this.compatModeEnabled &&
+              op.type === ProfileAttributeType.STRING &&
+              isString(op.value) &&
+              isMEPAttributeStringNotValid(op.value)
+            ) {
+              Log.warn(
+                "User",
+                `String attributes can't be null, empty or longer than ${Consts.AttributeStringMaxLengthMEP} characters
+                 for the Mobile Engagement Platform (MEP). Ignoring attribute '${op.key}'.`
+              );
+              continue;
+            }
+            if (
+              this.compatModeEnabled &&
+              op.type === ProfileAttributeType.ARRAY &&
+              isSet(op.value) &&
+              isMEPAttributeStringArrayNotValid(Array.from(op.value))
+            ) {
+              Log.warn(
+                "User",
+                `String array attributes must only have values of type String 
+                and must respect the string attribute limitations for the Mobile Engagement Platform (MEP).
+                 Ignoring attribute '${op.key}'.`
+              );
+              continue;
+            }
             this.customAttributes[this.normalizeAttributeName(op.key)] = {
               value: op.value,
               type: op.type,
@@ -39,11 +68,20 @@ export default class ProfileDataWriter {
             const values = op.value.map(val => this.normalizeAttributeName(val));
             const targetAttribute = this.customAttributes[key];
 
-            // Case: Array attribute already exist and is a Set
+            if (this.compatModeEnabled && isMEPAttributeStringArrayNotValid(values)) {
+              Log.warn(
+                "User",
+                `String array attributes must only have values of type String 
+                and must respect the string attribute limitations for the Mobile Engagement Platform (MEP).
+                 Ignoring attribute '${op.key}'.`
+              );
+              continue;
+            }
+            // Case: Array attribute already exists and is a Set
             if (targetAttribute && isSet(targetAttribute.value)) {
               values.forEach(targetAttribute.value.add, targetAttribute.value);
             }
-            // Case: Array attribute already exist and is a Partial Update object ($add/$remove)
+            // Case: Array attribute already exists and is a Partial Update object ($add/$remove)
             else if (targetAttribute && isPartialUpdateArrayObject(targetAttribute.value)) {
               if (targetAttribute.value.$add) {
                 values.forEach(targetAttribute.value.$add.add, targetAttribute.value.$add);
@@ -51,7 +89,7 @@ export default class ProfileDataWriter {
                 targetAttribute.value.$add = new Set(values);
               }
             }
-            // Case: Array attribute already exist and is null
+            // Case: Array attribute already exists and is null
             else if (targetAttribute?.value === null) {
               this.customAttributes[key] = {
                 value: new Set(values),
@@ -73,7 +111,17 @@ export default class ProfileDataWriter {
             const values = op.value.map(val => this.normalizeAttributeName(val));
             const targetAttribute = this.customAttributes[key];
 
-            // Case: Array attribute already exist and is a Set
+            if (this.compatModeEnabled && isMEPAttributeStringArrayNotValid(values)) {
+              Log.warn(
+                "User",
+                `String array attributes must only have values of type String 
+                and must respect the string attribute limitations for the Mobile Engagement Platform (MEP).
+                 Ignoring attribute '${op.key}'.`
+              );
+              continue;
+            }
+
+            // Case: Array attribute already exists and is a Set
             if (targetAttribute && isSet(targetAttribute.value)) {
               values.forEach(targetAttribute.value.delete, targetAttribute.value);
               // Cleanup empty array attribute
@@ -81,7 +129,7 @@ export default class ProfileDataWriter {
                 this.customAttributes[key].value = null;
               }
             }
-            // Case: Array attribute already exist and is a Partial Update object ($add/$remove)
+            // Case: Array attribute already exists and is a Partial Update object ($add/$remove)
             else if (targetAttribute && isPartialUpdateArrayObject(targetAttribute.value)) {
               if (targetAttribute.value.$remove) {
                 values.forEach(targetAttribute.value.$remove.add, targetAttribute.value.$remove);
@@ -89,9 +137,9 @@ export default class ProfileDataWriter {
                 targetAttribute.value.$remove = new Set(values);
               }
             }
-            // Case: Array attribute already exist and is null
+            // Case: Array attribute already exists and is null
             else if (targetAttribute?.value === null) {
-              // Do nothing, we set the type to avoid un-suffixed key, but it's useless
+              // Do nothing, we set the type to avoid unsuffixed key, but it's useless
               this.customAttributes[key].type = ProfileAttributeType.ARRAY;
             }
             // Case: Array attribute doesn't exist

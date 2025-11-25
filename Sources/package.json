@@ -1,7 +1,6 @@
 {
-  "repository" : {
-
-  },
+  "version" : "4.2.0",
+  "majorVersion" : "4",
   "dependencies" : {
     "typescript" : "5.5.4",
     "node-fetch" : "2.6.6",
@@ -56,9 +55,19 @@
     "typedoc" : "^0.26.11",
     "eslint-config-airbnb-base" : "^15.0.0"
   },
-  "main" : "index.js",
-  "version" : "4.1.2",
-  "majorVersion" : "4",
+  "private" : true,
+  "repository" : {
+
+  },
+  "devDependencies" : {
+    "eslint-plugin-playwright" : "^0.18.0",
+    "@eslint\/eslintrc" : "^3.1.0",
+    "globals" : "15.8.0",
+    "@playwright\/test" : "^1.39.0",
+    "@eslint\/js" : "^9.7.0"
+  },
+  "packageManager" : "yarn@3.2.0",
+  "license" : "Proprietary",
   "scripts" : {
     "build" : "yarn type-check && yarn build-webpack",
     "doc" : "cd src\/public\/types\/ && typedoc --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
@@ -68,15 +77,6 @@
     "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
     "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
   },
-  "packageManager" : "yarn@3.2.0",
-  "license" : "Proprietary",
   "name" : "batch-webpush-sdk",
-  "private" : true,
-  "devDependencies" : {
-    "eslint-plugin-playwright" : "^0.18.0",
-    "@eslint\/eslintrc" : "^3.1.0",
-    "globals" : "15.8.0",
-    "@playwright\/test" : "^1.39.0",
-    "@eslint\/js" : "^9.7.0"
-  }
+  "main" : "index.js"
 }

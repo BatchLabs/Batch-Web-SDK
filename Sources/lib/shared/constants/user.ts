@@ -1,9 +1,10 @@
 export const Consts = {
   AttributeKeyRegexp: /^[a-zA-Z0-9_]{1,30}$/,
-  AttributeStringMaxLength: 64,
+  AttributeStringMaxLengthMEP: 64,
+  AttributeStringMaxLengthCEP: 300,
   AttributeURLMaxLength: 2048,
   EventDataLabelMaxLength: 200,
-  EventDataStringMaxLength: 200,
+  EventDataStringMaxLength: 300,
   EventDataTagMaxLength: 64,
   EventNameRegex: /^[a-zA-Z0-9_]{1,30}$/,
   MaxEventAttributesCount: 20,

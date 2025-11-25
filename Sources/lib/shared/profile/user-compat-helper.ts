@@ -1,3 +1,4 @@
+import { Consts } from "com.batch.shared/constants/user";
 import { isSet } from "com.batch.shared/helpers/primitive";
 import { isPartialUpdateArrayObject, ProfileAttributeType, ProfileCustomDataAttributes } from "com.batch.shared/profile/profile-data-types";
 import { UserAttributeType, UserDataAttributes, UserDataTagCollections } from "com.batch.shared/profile/user-data-types";
@@ -38,4 +39,17 @@ export function convertProfileDataAttributesToUserPublicTags(attributes: Profile
     }
   }
   return tagCollections;
+}
+
+export function isMEPAttributeStringNotValid(attribute: string): boolean {
+  return attribute != null && (attribute.trim().length === 0 || attribute.length > Consts.AttributeStringMaxLengthMEP);
+}
+
+export function isMEPAttributeStringArrayNotValid(attribute: string[]): boolean {
+  for (const item of attribute) {
+    if (isMEPAttributeStringNotValid(item)) {
+      return true;
+    }
+  }
+  return false;
 }

@@ -106,11 +106,34 @@ function isValidAttributeKey(key: string): boolean {
 }
 
 function isValidStringValue(value: string, key?: string): boolean {
-  if (value.length === 0 || value.length > Consts.AttributeStringMaxLength) {
+  if (value.length === 0 || value.length > Consts.AttributeStringMaxLengthCEP) {
     Log.warn(
       logModuleName,
-      `String attributes can't be empty or longer than ${Consts.AttributeStringMaxLength}
+      `String attributes can't be empty or longer than ${Consts.AttributeStringMaxLengthCEP}
             characters. Ignoring attribute ${key}.`
+    );
+    return false;
+  }
+  return true;
+}
+
+function isValidStringArrayValue(value: string[], key: string): boolean {
+  if (!isArray(value)) {
+    Log.warn(logModuleName, `Value must be an array of string. Ignoring attribute ${key}`);
+    return false;
+  }
+  if (value.length === 0 || value.length > Consts.MaxEventArrayItems) {
+    Log.warn(
+      logModuleName,
+      `Array of string attributes must not be empty or longer than ${Consts.MaxEventArrayItems}. Ignoring attribute ${key}`
+    );
+    return false;
+  }
+  if (!value.every(it => isValidStringValue(it))) {
+    Log.warn(
+      logModuleName,
+      `Array of string attributes must only have values of type String 
+        and must respect the string attribute limitations. Ignoring attribute ${key}`
     );
     return false;
   }
@@ -342,7 +365,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
   /**
    * Put a value in an attribute of type Array.
    *
-   * @param key Attribute key, can't be null or undefined. It should be made of letters, underscores and numbers only
+   * @param key Attribute key can't be null or undefined. It should be made of letters, underscores and numbers only
    * (a-zA-Z0-9_). It also can't be longer than 30 characters.
    * @param value Attribute values to add.
    * @return This object instance, for method chaining
@@ -351,11 +374,8 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
     if (!isValidAttributeKey(key)) {
       return this;
     }
-    if (!isArray(value)) {
-      Log.debug(logModuleName, "Value for `addToArray` must be an array of string. Aborting");
-      return this;
-    }
-    if (value.length > 0 && !value.every(it => isValidStringValue(it))) {
+
+    if (!isValidStringArrayValue(value, key)) {
       return this;
     }
 
@@ -371,8 +391,9 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
    * Removes values from a custom attribute of type Array.
    * Does nothing if it was not set.
    *
-   * @param key Attribute key, can't be null or undefined. It should be made of letters, underscores and numbers only
-   * (a-zA-Z0-9_). It also can't be longer than 30 characters.
+   * @param key Attribute key can't be null or undefined.
+   * It should be made of letters, underscores and numbers only (a-zA-Z0-9_).
+   * It also can't be longer than 30 characters.
    * @param value Attribute values to remove.
    * @return This object instance, for method chaining
    */
@@ -380,10 +401,11 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
     if (!isValidAttributeKey(key)) {
       return this;
     }
-    if (!isArray(value)) {
-      Log.debug(logModuleName, "Value for `removeFromArray` must be an array of string. Aborting");
+
+    if (!isValidStringArrayValue(value, key)) {
       return this;
     }
+
     this._enqueueOperation({
       operation: ProfileDataOperation.RemoveFromArray,
       key: key.toLowerCase(),
@@ -452,6 +474,9 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return userAttribute;
     }
     if (isArray(value)) {
+      if (!isValidStringArrayValue(value, key)) {
+        return;
+      }
       userAttribute.value = new Set(value.map(val => val.toLocaleLowerCase()));
       userAttribute.type = ProfileAttributeType.ARRAY;
       return userAttribute;
@@ -564,15 +589,10 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
         return;
       }
       case ProfileAttributeType.ARRAY: {
-        if (isArray(userAttribute.value)) {
-          return new Set(userAttribute.value.map((val: string) => val.toLocaleLowerCase()));
+        if (!isValidStringArrayValue(userAttribute.value, key)) {
+          return;
         }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the ARRAY type. Must be an ARRAY.
-          Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
+        return new Set(userAttribute.value.map((val: string) => val.toLocaleLowerCase()));
       }
       default:
         Log.warn("This type does not exist. Ignoring attribute.");

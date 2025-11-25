@@ -11,7 +11,7 @@ describe("Profile data editor", () => {
         .setAttribute("", "")
         .setAttribute(1, 1)
         .setAttribute(undefined, "sports")
-        .setAttribute("interests", "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis")
+        .setAttribute("interests", "stringTooLong".repeat(30))
         .setAttribute("website", {
           type: ProfileAttributeType.URL,
           value: new Date(),
@@ -36,14 +36,25 @@ describe("Profile data editor", () => {
           type: ProfileAttributeType.BOOLEAN,
           value: 1,
         })
+        .setAttribute("array", {
+          type: ProfileAttributeType.ARRAY,
+          value: [
+            "stringTooLong".repeat(30)
+          ],
+        })
         .addToArray("interests", [""])
         .addToArray("", [""])
         .addToArray(1, [1])
         .addToArray(undefined, ["sports"])
         .addToArray("interests", [
-          "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis" +
-            "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis" +
-            "pneumonoultramicroscopicsilicovolcanoconiosispneumonoultramicroscopicsilicovolcanoconiosis",
+          "stringTooLong".repeat(30)
+        ])
+        .removeFromArray("interests", [""])
+        .removeFromArray("", [""])
+        .removeFromArray(1, [1])
+        .removeFromArray(undefined, ["sports"])
+        .removeFromArray("interests", [
+          "stringTooLong".repeat(30)
         ]);
 
       const operations = editor.getOperations();
