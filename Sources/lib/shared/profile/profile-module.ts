@@ -147,7 +147,7 @@ export class ProfileModule implements BatchSDK.IProfile {
 
       // CustomID Migration
       const customId = await store.getParameterValue<string>(keysByProvider.profile.CustomIdentifier);
-      if (customId !== null) {
+      if (customId !== null && isString(customId)) {
         if (this.sdkConfiguration.migrations?.v4?.customID === false) {
           Log.debug(logModuleName, "Custom ID migration has been explicitly disabled.");
         } else {

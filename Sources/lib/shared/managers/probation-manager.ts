@@ -81,6 +81,7 @@ export class ProbationManager {
     const hasSubscription = await this.parameterStore.getParameterValue(keysByProvider.profile.Subscription);
     if (hasSubscription !== null) {
       void this.takeOutOfProbationFor(ProbationType.Push);
+      void this.takeOutOfProbationFor(ProbationType.Profile);
       return;
     }
 

@@ -403,6 +403,28 @@ describe("Profile Module", () => {
         });
         expect(mockedEventTracker.track).not.toHaveBeenCalledWith(expectedTrackedEvent);
       });
+      it("Auto identify event should not be sent when cuid is not a string", async () => {
+        const profilePersistence = await ProfilePersistence.getInstance();
+        await profilePersistence.setData(ProfileKeys.CustomIdentifier, 123456789);
+        const sdk = new BaseSdk();
+        await sdk.setup({
+          apiKey: "DEV12345",
+          authKey: "1.test",
+        });
+        LocalEventBus.emit(LocalSDKEvent.ProjectChanged, { old: null, new: "project_1234467898" }, false);
+        await Delay(100);
+        const mockedEventTracker: EventTracker = EventTracker.mock.instances[0];
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileIdentify,
+          params: {
+            identifiers: {
+              install_id: "test_auto_installation_id",
+              custom_id: 123456789,
+            },
+          },
+        });
+        expect(mockedEventTracker.track).not.toHaveBeenCalledWith(expectedTrackedEvent);
+      });
     });
 
     describe("Custom Data Migration", () => {

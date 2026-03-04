@@ -6,6 +6,7 @@ import { Delay } from "com.batch.shared/helpers/timed-promise";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 import { ProbationManager, ProbationType } from "com.batch.shared/managers/probation-manager";
+import { keysByProvider } from "com.batch.shared/parameters/keys";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
 import { IndexedDbMemoryMock } from "com.batch.shared/persistence/__mocks__/indexed-db-memory-mock";
 import { ProfilePersistence } from "com.batch.shared/persistence/profile";
@@ -63,5 +64,15 @@ describe("Probation Manager", () => {
     expect(mock.onExitedProbation).toHaveBeenCalledTimes(2);
     expect(mock.onExitedProbation).toHaveBeenCalledWith({ type: ProbationType.Profile }, expect.anything());
     expect(mock.onExitedProbation).toHaveBeenCalledWith({ type: ProbationType.Push }, expect.anything());
+  });
+
+  it("Test out of profile probation on init when subscription already exists", async () => {
+    const parameterStore = await ParameterStore.getInstance();
+    await parameterStore.setParameterValue(keysByProvider.profile.Subscription, { endpoint: "https://example.com/push" });
+    const probationManager = new ProbationManager(parameterStore);
+    await Delay(100);
+
+    expect(await probationManager.isInProfileProbation()).toBe(false);
+    expect(await probationManager.isInPushProbation()).toBe(false);
   });
 });
