@@ -11,7 +11,6 @@ import { ProbationManager, ProbationType } from "com.batch.shared/managers/proba
 import { keysByProvider } from "com.batch.shared/parameters/keys";
 import { indexedDBKeyBinder } from "com.batch.shared/parameters/keys.profile";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
-import { IProfileOperation } from "com.batch.shared/profile/profile-attribute-editor";
 import { hasProfileDataChanged } from "com.batch.shared/profile/profile-data-diff";
 import {
   ProfileAttributeType,
@@ -20,6 +19,7 @@ import {
   ProfileNativeDataAttribute,
 } from "com.batch.shared/profile/profile-data-types";
 import ProfileDataWriter from "com.batch.shared/profile/profile-data-writer";
+import { IProfileOperation } from "com.batch.shared/profile/profile-operations";
 import {
   convertProfileDataAttributesToUserAttributes,
   convertProfileDataAttributesToUserPublicTags,

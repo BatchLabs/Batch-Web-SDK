@@ -1,9 +1,10 @@
 import Event from "com.batch.shared/event/event";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
-import { isSet } from "com.batch.shared/helpers/primitive";
+import { isSet, isString } from "com.batch.shared/helpers/primitive";
 import { ProfileKeys } from "com.batch.shared/parameters/keys.profile";
 import {
   isPartialUpdateArrayObject,
+  PartialUpdateArrayObject,
   ProfileAttributeType,
   ProfileCustomDataAttributes,
   ProfileNativeAttributeType,
@@ -23,6 +24,7 @@ export interface ProfileDataChangedParameters {
   device_region?: string;
   language?: string | null;
   region?: string | null;
+  topic_preferences?: Array<string> | PartialUpdateObject | null;
   custom_attributes?: CustomAttributeType;
 }
 
@@ -49,19 +51,23 @@ export class ProfileEventBuilder {
     for (const [key, attribute] of Object.entries(attributes)) {
       const hintKey = attribute.type !== ProfileAttributeType.UNKNOWN ? `${key.toLowerCase()}.${attribute.type}` : key.toLowerCase();
       if (isPartialUpdateArrayObject(attribute.value)) {
-        const partialUpdate: PartialUpdateObject = {};
-        if (attribute.value.$add) {
-          partialUpdate.$add = Array.from(attribute.value.$add);
-        }
-        if (attribute.value.$remove) {
-          partialUpdate.$remove = Array.from(attribute.value.$remove);
-        }
-        attrs[hintKey] = partialUpdate;
+        attrs[hintKey] = this.convertPartialUpdateObject(attribute.value);
       } else {
-        attrs[hintKey] = isSet(attribute.value) ? Array.from(attribute.value) : attribute.value;
+        attrs[hintKey] = isSet(attribute.value) ? Array.from(attribute.value) : (attribute.value ?? null);
       }
     }
     return attrs;
+  }
+
+  private convertPartialUpdateObject(attribute: PartialUpdateArrayObject): PartialUpdateObject {
+    const partialUpdate: PartialUpdateObject = {};
+    if (attribute.$add) {
+      partialUpdate.$add = Array.from(attribute.$add);
+    }
+    if (attribute.$remove) {
+      partialUpdate.$remove = Array.from(attribute.$remove);
+    }
+    return partialUpdate;
   }
 
   public withCustomAttributes(customData: ProfileCustomDataAttributes): ProfileEventBuilder {
@@ -89,12 +95,23 @@ export class ProfileEventBuilder {
         case ProfileNativeAttributeType.EMAIL_MARKETING:
         case ProfileNativeAttributeType.DEVICE_LANGUAGE:
         case ProfileNativeAttributeType.DEVICE_TIMEZONE:
-          if (native.value) {
+          if (native.value && isString(native.value)) {
             this.params[native.key] = native.value;
           }
           break;
+        case ProfileNativeAttributeType.TOPIC_PREFERENCES:
+          if (native.value === null || native.value === undefined) {
+            this.params[native.key] = null;
+          } else if (isPartialUpdateArrayObject(native.value)) {
+            this.params[native.key] = this.convertPartialUpdateObject(native.value);
+          } else {
+            this.params[native.key] = Array.from(native.value);
+          }
+          break;
         default:
-          this.params[native.key] = native.value;
+          if (native.value === null || isString(native.value)) {
+            this.params[native.key] = native.value;
+          }
       }
     }
     return this;

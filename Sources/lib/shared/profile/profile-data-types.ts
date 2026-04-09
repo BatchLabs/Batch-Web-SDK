@@ -18,16 +18,23 @@ export enum ProfileNativeAttributeType {
   REGION = "region",
   DEVICE_LANGUAGE = "device_language",
   DEVICE_TIMEZONE = "device_timezone",
+  TOPIC_PREFERENCES = "topic_preferences",
 }
 
 export type PartialUpdateArrayObject = { $add?: Set<string>; $remove?: Set<string> };
-export type ProfileDataAttribute = {
-  value: string | number | boolean | Set<string> | PartialUpdateArrayObject | null;
-  type: ProfileAttributeType;
-};
 export function isPartialUpdateArrayObject(value: unknown): value is PartialUpdateArrayObject {
   return value instanceof Object && !Array.isArray(value) && !isSet(value) && value !== null;
 }
+
+export type ProfileNullableStringArrayAttribute = Set<string> | PartialUpdateArrayObject | null | undefined;
+export function isProfileNullableStringArrayAttribute(value: unknown): value is ProfileNullableStringArrayAttribute {
+  return value instanceof Set || isPartialUpdateArrayObject(value) || value === null || value === undefined;
+}
+
+export type ProfileDataAttribute = {
+  value: string | number | boolean | ProfileNullableStringArrayAttribute | null;
+  type: ProfileAttributeType;
+};
 
 export type ProfileCustomDataAttributes = {
   [key: string]: ProfileDataAttribute;
@@ -35,5 +42,5 @@ export type ProfileCustomDataAttributes = {
 
 export type ProfileNativeDataAttribute = {
   key: ProfileNativeAttributeType;
-  value: string | null;
+  value: string | ProfileNullableStringArrayAttribute | null;
 };

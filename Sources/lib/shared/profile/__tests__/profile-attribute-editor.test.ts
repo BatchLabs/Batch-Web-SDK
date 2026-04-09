@@ -1,6 +1,7 @@
 // @ts-nocheck
-import { ProfileAttributeEditor, ProfileDataOperation } from "../profile-attribute-editor";
-import { ProfileAttributeType, ProfileNativeAttributeType } from "../profile-data-types";
+import { ProfileAttributeEditor } from "com.batch.shared/profile//profile-attribute-editor";
+import { ProfileAttributeType, ProfileNativeAttributeType } from "com.batch.shared/profile//profile-data-types";
+import { ProfileDataOperation } from "com.batch.shared/profile/profile-operations";
 
 describe("Profile data editor", () => {
   describe("Custom Attributes", () => {
@@ -38,24 +39,18 @@ describe("Profile data editor", () => {
         })
         .setAttribute("array", {
           type: ProfileAttributeType.ARRAY,
-          value: [
-            "stringTooLong".repeat(30)
-          ],
+          value: ["stringTooLong".repeat(30)],
         })
         .addToArray("interests", [""])
         .addToArray("", [""])
         .addToArray(1, [1])
         .addToArray(undefined, ["sports"])
-        .addToArray("interests", [
-          "stringTooLong".repeat(30)
-        ])
+        .addToArray("interests", ["stringTooLong".repeat(30)])
         .removeFromArray("interests", [""])
         .removeFromArray("", [""])
         .removeFromArray(1, [1])
         .removeFromArray(undefined, ["sports"])
-        .removeFromArray("interests", [
-          "stringTooLong".repeat(30)
-        ]);
+        .removeFromArray("interests", ["stringTooLong".repeat(30)]);
 
       const operations = editor.getOperations();
 
@@ -228,6 +223,56 @@ describe("Profile data editor", () => {
       it("Invalid region", () => {
         const editor = new ProfileAttributeEditor(true);
         editor.setLanguage("F");
+        expect(editor.getOperations()).toEqual([]);
+      });
+    });
+    describe("Topic Preferences ", () => {
+      it("Valid topic preferences", () => {
+        const editor = new ProfileAttributeEditor(true);
+        editor.setTopicPreferences(["news", "sports"]);
+        editor.addToTopicPreferences(["olympics"]);
+        editor.removeFromTopicPreferences(["mangas"]);
+        expect(editor.getOperations()).toEqual([
+          {
+            operation: ProfileDataOperation.SetTopicPreferences,
+            key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+            value: ["news", "sports"],
+          },
+          {
+            operation: ProfileDataOperation.AddToTopicPreferences,
+            key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+            value: ["olympics"],
+          },
+          {
+            operation: ProfileDataOperation.RemoveFromTopicPreferences,
+            key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+            value: ["mangas"],
+          },
+        ]);
+      });
+      it("Null valid topic preferences", () => {
+        const editor = new ProfileAttributeEditor(true);
+        editor.setTopicPreferences(null);
+        expect(editor.getOperations()).toEqual([
+          {
+            operation: ProfileDataOperation.SetTopicPreferences,
+            key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+            value: null,
+          },
+        ]);
+      });
+      it("Invalid topic preferences", () => {
+        const values = [];
+        for (let i = 0; i < 26; i++) {
+          values.push(`news${i}`);
+        }
+        const editor = new ProfileAttributeEditor(true);
+        editor.setTopicPreferences(["wrong format", "news"]); // wrong format
+        editor.setTopicPreferences([]); // empty value
+        editor.setTopicPreferences(values); // too many items
+        editor.setTopicPreferences(["stringTooLong".repeat(30)]); // items too long
+        editor.addToTopicPreferences(["wrong format", "news"]);
+        editor.removeFromTopicPreferences(["wrong format", "news"]);
         expect(editor.getOperations()).toEqual([]);
       });
     });

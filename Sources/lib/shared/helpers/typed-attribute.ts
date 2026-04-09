@@ -1,4 +1,4 @@
-import { IProfileNativeOperations, IProfileOperation, ProfileDataOperation } from "com.batch.shared/profile/profile-attribute-editor";
+import { IProfileNativeOperations, IProfileOperation, ProfileDataOperation } from "com.batch.shared/profile/profile-operations";
 
 import { BatchSDK } from "../../../public/types/public-api";
 
@@ -28,6 +28,9 @@ export function isNativeOperation(value: IProfileOperation): value is IProfileNa
     value.operation == ProfileDataOperation.SetLanguage ||
     value.operation == ProfileDataOperation.SetRegion ||
     value.operation == ProfileDataOperation.SetEmail ||
-    value.operation == ProfileDataOperation.SetEmailMarketingSubscriptionState
+    value.operation == ProfileDataOperation.SetEmailMarketingSubscriptionState ||
+    value.operation == ProfileDataOperation.SetTopicPreferences ||
+    value.operation == ProfileDataOperation.AddToTopicPreferences ||
+    value.operation == ProfileDataOperation.RemoveFromTopicPreferences
   );
 }

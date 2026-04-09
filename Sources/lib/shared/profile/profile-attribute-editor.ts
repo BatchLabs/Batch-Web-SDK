@@ -2,143 +2,20 @@ import { Consts } from "com.batch.shared/constants/user";
 import { isArray, isBoolean, isDate, isFloat, isNumber, isString, isURL } from "com.batch.shared/helpers/primitive";
 import { isProfileTypedAttributeValue } from "com.batch.shared/helpers/typed-attribute";
 import { Log } from "com.batch.shared/logger";
+import {
+  isValidAttributeKey,
+  isValidStringArrayValue,
+  isValidStringValue,
+  validateAndNormalizeTopicPreferences,
+} from "com.batch.shared/profile/profile-data-helper";
 import { ProfileAttributeType, ProfileNativeAttributeType } from "com.batch.shared/profile/profile-data-types";
+import { IProfileOperation, ProfileDataOperation } from "com.batch.shared/profile/profile-operations";
 
 import { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Profile Attribute Editor";
 
 const allowedSubscriptions = ["subscribed", "unsubscribed"];
-
-export enum ProfileDataOperation {
-  SetAttribute = "SET_ATTRIBUTE",
-  RemoveAttribute = "REMOVE_ATTRIBUTE",
-  AddToArray = "ADD_TO_ARRAY",
-  RemoveFromArray = "REMOVE_FROM_ARRAY",
-  SetLanguage = "SET_LANGUAGE",
-  SetRegion = "SET_REGION",
-  SetEmail = "SET_EMAIL",
-  SetEmailMarketingSubscriptionState = "SET_EMAIL_MARKETING_SUBSCRIPTION_STATE",
-}
-
-type SetAttributeOperation = {
-  operation: ProfileDataOperation.SetAttribute;
-  key: string;
-  value: string | number | boolean | Set<string>;
-  type: ProfileAttributeType;
-};
-
-type RemoveAttributeOperation = {
-  operation: ProfileDataOperation.RemoveAttribute;
-  key: string;
-};
-
-type PutInAttributeOperation = {
-  operation: ProfileDataOperation.AddToArray;
-  key: string;
-  value: Array<string>;
-};
-
-type RemoveInAttributeOperation = {
-  operation: ProfileDataOperation.RemoveFromArray;
-  key: string;
-  value: Array<string>;
-};
-
-type SetLanguageOperation = {
-  operation: ProfileDataOperation.SetLanguage;
-  key: ProfileNativeAttributeType.LANGUAGE;
-  value: string | null;
-};
-type SetRegionOperation = {
-  operation: ProfileDataOperation.SetRegion;
-  key: ProfileNativeAttributeType.REGION;
-  value: string | null;
-};
-
-type SetEmailOperation = {
-  operation: ProfileDataOperation.SetEmail;
-  key: ProfileNativeAttributeType.EMAIL;
-  value: string | null;
-};
-
-type SetEmailMarketingSubscriptionStateOperation = {
-  operation: ProfileDataOperation.SetEmailMarketingSubscriptionState;
-  key: ProfileNativeAttributeType.EMAIL_MARKETING;
-  value: string;
-};
-
-export type IProfileNativeOperations =
-  | SetLanguageOperation
-  | SetRegionOperation
-  | SetEmailOperation
-  | SetEmailMarketingSubscriptionStateOperation;
-
-export type IProfileOperation =
-  | RemoveAttributeOperation
-  | SetAttributeOperation
-  | PutInAttributeOperation
-  | RemoveInAttributeOperation
-  | IProfileNativeOperations;
-
-/**
- * Helper method to validate an attribute's key
- *
- * @return true if key is valid, else log warning message and return false
- * @param key The attribute's key
- * @private
- */
-function isValidAttributeKey(key: string): boolean {
-  if (!isString(key)) {
-    Log.warn(logModuleName, "key must be a string.");
-    return false;
-  }
-  if (!Consts.AttributeKeyRegexp.test(key || "")) {
-    Log.warn(
-      logModuleName,
-      `Invalid key. Please make sure that the key is made of letters, 
-      underscores and numbers only (a-zA-Z0-9_). It also can't be longer than 30 characters. Ignoring attribute 
-        ${key}.`
-    );
-    return false;
-  }
-  return true;
-}
-
-function isValidStringValue(value: string, key?: string): boolean {
-  if (value.length === 0 || value.length > Consts.AttributeStringMaxLengthCEP) {
-    Log.warn(
-      logModuleName,
-      `String attributes can't be empty or longer than ${Consts.AttributeStringMaxLengthCEP}
-            characters. Ignoring attribute ${key}.`
-    );
-    return false;
-  }
-  return true;
-}
-
-function isValidStringArrayValue(value: string[], key: string): boolean {
-  if (!isArray(value)) {
-    Log.warn(logModuleName, `Value must be an array of string. Ignoring attribute ${key}`);
-    return false;
-  }
-  if (value.length === 0 || value.length > Consts.MaxEventArrayItems) {
-    Log.warn(
-      logModuleName,
-      `Array of string attributes must not be empty or longer than ${Consts.MaxEventArrayItems}. Ignoring attribute ${key}`
-    );
-    return false;
-  }
-  if (!value.every(it => isValidStringValue(it))) {
-    Log.warn(
-      logModuleName,
-      `Array of string attributes must only have values of type String 
-        and must respect the string attribute limitations. Ignoring attribute ${key}`
-    );
-    return false;
-  }
-  return true;
-}
 
 /**
  * Batch profile attribute editor
@@ -241,7 +118,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
   /**
    * Set the profile email.
    *
-   * Note: This method requires to have a profile logged.
+   * Note: This method requires having a profile logged.
    * @param email A valid email address
    * @return This object instance, for method chaining.
    */
@@ -298,9 +175,75 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
   }
 
   /**
+   * Set the profile topic preferences.
+   * @param topics Array of strings
+   * @return This object instance, for method chaining.
+   */
+  public setTopicPreferences(topics: Array<string> | null): ProfileAttributeEditor {
+    if (topics == null || typeof topics === "undefined") {
+      this._enqueueOperation({
+        operation: ProfileDataOperation.SetTopicPreferences,
+        key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+        value: null,
+      });
+      return this;
+    }
+
+    try {
+      const normalizedTopics = validateAndNormalizeTopicPreferences(topics);
+      this._enqueueOperation({
+        operation: ProfileDataOperation.SetTopicPreferences,
+        key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+        value: normalizedTopics,
+      });
+    } catch (e) {
+      Log.warn(logModuleName, e.message);
+    }
+    return this;
+  }
+
+  /**
+   * Set the profile topic preferences.
+   * @param topics Array of strings
+   * @return This object instance, for method chaining.
+   */
+  public addToTopicPreferences(topics: Array<string>): ProfileAttributeEditor {
+    try {
+      const normalizedTopics = validateAndNormalizeTopicPreferences(topics);
+      this._enqueueOperation({
+        operation: ProfileDataOperation.AddToTopicPreferences,
+        key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+        value: normalizedTopics,
+      });
+    } catch (e) {
+      Log.warn(logModuleName, e.message);
+    }
+    return this;
+  }
+
+  /**
+   * Set the profile topic preferences.
+   * @param value Array of strings
+   * @return This object instance, for method chaining.
+   */
+  public removeFromTopicPreferences(topics: Array<string>): ProfileAttributeEditor {
+    try {
+      const normalizedTopics = validateAndNormalizeTopicPreferences(topics);
+      this._enqueueOperation({
+        operation: ProfileDataOperation.RemoveFromTopicPreferences,
+        key: ProfileNativeAttributeType.TOPIC_PREFERENCES,
+        value: normalizedTopics,
+      });
+    } catch (e) {
+      Log.warn(logModuleName, e.message);
+    }
+    return this;
+  }
+
+  /**
    * Set a custom profile attribute.
    *
-   * @param key Attribute key, can't be null or undefined. It should be made of letters, underscores and numbers only
+   * @param key Attribute key can't be null or undefined. It should be made of letters, underscores, and numbers only
    * (a-zA-Z0-9_). It also can't be longer than 30 characters.
    * @param value Attribute value.
    * @return This object instance, for method chaining

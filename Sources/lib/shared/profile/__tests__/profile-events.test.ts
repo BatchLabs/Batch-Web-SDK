@@ -22,6 +22,10 @@ const natives: ProfileNativeDataAttribute[] = [
     key: "region",
     value: "FR",
   },
+  {
+    key: "topic_preferences",
+    value: ["news", "offers"],
+  },
 ];
 
 const customs: ProfileCustomDataAttributes = {
@@ -69,6 +73,7 @@ describe("Profile events", () => {
         email_marketing: "subscribed",
         language: "fr",
         region: "FR",
+        topic_preferences: ["news", "offers"],
       });
     });
     it("Test event without natives attributes", () => {
@@ -95,6 +100,7 @@ describe("Profile events", () => {
         email_marketing: "subscribed",
         language: "fr",
         region: "FR",
+        topic_preferences: ["news", "offers"],
         custom_attributes: {
           "label.s": "label",
           "longstring.s": "longstring".repeat(30),

@@ -13,7 +13,7 @@ eslint_report.json
 .coverage-report/
 
 # Yarn
-.yarn/*
-#!.yarn/cache
-!.yarn/releases
-!.yarn/plugins
+Sources/.yarn/*
+#!Sources/.yarn/cache
+!Sources/.yarn/releases
+!Sources/.yarn/plugins

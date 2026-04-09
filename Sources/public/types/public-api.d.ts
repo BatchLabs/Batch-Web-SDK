@@ -155,7 +155,7 @@ export namespace BatchSDK {
      * Attach the current installation to a Profile.
      * @param identifier An object containing the `customId`.
      *
-     * Return a promise that resolve the IProfile instance.
+     * Return a promise that resolves the IProfile instance.
      *
      * See `https://doc.batch.com/web/custom-data/customid` for more info.
      */
@@ -168,16 +168,16 @@ export namespace BatchSDK {
      * To edit data, pass a function to this method. Batch will call it back with the profile data editor as its only parameter.
      * Once your callback ends, Batch will persist the changes.
      *
-     * If your edits result in your attributes going over limit, an error will be logged and
+     * If your edits result in your attributes going over the limit, an error will be logged and
      * _all_ of the changes described in the transaction will be rolled back, as if nothing happened.
      * See `https://doc.batch.com/web/custom-data/custom-attributes` for more info about the limits.
      *
      * Escaping the editor instance is not supported: calling any method on it once your callback has ended _will_
      * throw an exception.
      *
-     * See `ProfileDataEditor`'s documentation for the methods available on the user data editor.
+     * See `ProfileDataEditor`'s documentation for the methods available in the user data editor.
      *
-     * Return a promise that resolve the IProfile instance.
+     * Return a promise that resolves the IProfile instance.
      */
     edit: (callback: (editor: IProfileDataEditor) => void) => Promise<IProfile>;
   }
@@ -188,21 +188,21 @@ export namespace BatchSDK {
    */
   interface IProfileDataEditor {
     /**
-     * Associate a language to this profile.
+     * Associate a language with this profile.
      * @param language must be 2 chars, lowercase, ISO 639 formatted
      */
     setLanguage: (language: string | undefined | null) => IProfileEditor;
 
     /**
-     * Associate a region to this profile.
+     * Associate a region with this profile.
      * @param region must be 2 chars, uppercase, ISO 3166 formatted
      */
     setRegion: (region: string | undefined | null) => IProfileEditor;
 
     /**
-     * Associate an email address to this profile.
+     * Associate an email address with this profile.
      *
-     * This requires to have a custom user ID registered with the `identify` API.
+     * This requires having a custom user ID registered with the `identify` API.
      * @param email must be valid, not longer than 256 characters. It must match the following pattern: ^[^@]+@[A-z0-9\-\.]+\.[A-z0-9]+$.
      * Null to erase.
      */
@@ -211,10 +211,40 @@ export namespace BatchSDK {
     /**
      * The profile's marketing emails subscription.
      *
-     * Note that profile's subscription status is automatically set to unsubscribed when they click an unsubscribe link.
+     * Note that a profile's subscription status is automatically set to unsubscribed when they click an unsubscribe link.
      * @param state You can set it to subscribed or unsubscribed.
      */
     setEmailMarketingSubscription: (state: "subscribed" | "unsubscribed") => IProfileEditor;
+
+    /**
+     * Set the profile topic preferences.
+     *
+     * @param topics List of topics to set. Null to reset.
+     *               Must be a valid List of String not longer than 25 items.
+     *               String should be made of letters, numbers or underscores ([a-z0-9_]) and can't be longer than 300 characters.
+     * @return This object instance, for method chaining.
+     */
+    setTopicPreferences: (topics: Array<string> | undefined | null) => IProfileEditor;
+
+    /**
+     * Add topics to the profile topic preferences.
+     *
+     * @param topics Topics to add.
+     *               Must be a valid List of String not longer than 25 items.
+     *               String should be made of letters, numbers or underscores ([a-z0-9_]) and can't be longer than 300 characters.
+     * @return This object instance, for method chaining.
+     */
+    addToTopicPreferences: (topics: Array<string>) => IProfileEditor;
+
+    /**
+     * Remove topics from the profile topic preferences.
+     *
+     * @param topics Topics to remove.
+     *               Must be a valid List of String not longer than 25 items.
+     *               String should be made of letters, numbers or underscores ([a-z0-9_]) and can't be longer than 300 characters.
+     * @return This object instance, for method chaining.
+     */
+    removeFromTopicPreferences: (topics: Array<string>) => IProfileEditor;
 
     setAttribute: (key: string, value: ProfileAttributeValue) => IProfileEditor;
     removeAttribute: (key: string) => IProfileEditor;

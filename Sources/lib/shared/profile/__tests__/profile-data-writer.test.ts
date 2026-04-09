@@ -1,7 +1,7 @@
 import { Consts } from "com.batch.shared/constants/user";
-import { IProfileOperation, ProfileDataOperation } from "com.batch.shared/profile/profile-attribute-editor";
 import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 import ProfileDataWriter from "com.batch.shared/profile/profile-data-writer";
+import { IProfileOperation, ProfileDataOperation } from "com.batch.shared/profile/profile-operations";
 
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/user-data");
@@ -88,7 +88,7 @@ describe("User data ", () => {
     const userData = userDataWriter.applyCustomOperations(operations);
 
     expect(userData).resolves.toEqual({
-      foo: { type: "s", value: null },
+      foo: { type: ProfileAttributeType.UNKNOWN, value: null },
       hi: {
         type: ProfileAttributeType.STRING,
         value: "hello",
@@ -167,14 +167,14 @@ describe("User data: Attributes", () => {
         value: 23,
       },
       hobbies: {
-        type: "s",
+        type: "",
         value: null,
       },
       interests: {
         type: "s",
         value: "fruits",
       },
-      os: { value: null, type: "a" },
+      os: { value: null, type: "" },
       games: { value: new Set(["aoe2"]), type: "a" },
     });
   });

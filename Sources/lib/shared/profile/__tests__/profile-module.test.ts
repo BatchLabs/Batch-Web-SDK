@@ -1,8 +1,6 @@
-/* eslint-env jest */
-/* eslint-disable @typescript-eslint/camelcase */
+// @ts-nocheck
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";
-import { EventData } from "com.batch.shared/event/event-data";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import EventTracker from "com.batch.shared/event/event-tracker";
 import { PublicEvent } from "com.batch.shared/event/public-event";
@@ -10,7 +8,7 @@ import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
 import { Delay } from "com.batch.shared/helpers/timed-promise";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent from "com.batch.shared/local-sdk-events";
-import { ProbationManager, ProbationType } from "com.batch.shared/managers/probation-manager";
+import { ProbationManager } from "com.batch.shared/managers/probation-manager";
 import { ProfileKeys } from "com.batch.shared/parameters/keys.profile";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
 import { IndexedDbMemoryMock } from "com.batch.shared/persistence/__mocks__/indexed-db-memory-mock";
@@ -105,10 +103,13 @@ describe("Profile Module", () => {
         editor.setLanguage("fr");
         editor.setRegion("FR");
         editor.setEmailMarketingSubscription("subscribed");
+        editor.setTopicPreferences(["sport", "cars"]);
+        editor.addToTopicPreferences(["boats"]);
+        editor.removeFromTopicPreferences(["cars"]);
       });
       const expectedTrackedEvent = expect.objectContaining({
         name: InternalSDKEvent.ProfileDataChanged,
-        params: { language: "fr", region: "FR", email_marketing: "subscribed" },
+        params: { language: "fr", region: "FR", email_marketing: "subscribed", topic_preferences: ["sport", "boats"] },
       });
       expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
     });
@@ -121,6 +122,9 @@ describe("Profile Module", () => {
         editor.setRegion("FR");
         editor.setEmailAddress("test@batch.com"); // should not be sent since logged out
         editor.setEmailMarketingSubscription("subscribed");
+        editor.setTopicPreferences(["sport", "cars"]);
+        editor.addToTopicPreferences(["boats"]);
+        editor.removeFromTopicPreferences(["cars"]);
         editor.setAttribute("label", "test");
         editor.setAttribute("price", 10);
         editor.setAttribute("interests", ["sport", "cars", "boats"]);
@@ -136,6 +140,7 @@ describe("Profile Module", () => {
           language: "fr",
           region: "FR",
           email_marketing: "subscribed",
+          topic_preferences: ["sport", "boats"],
           custom_attributes: {
             "label.s": "test",
             "price.i": 10,
@@ -150,16 +155,115 @@ describe("Profile Module", () => {
       expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
     });
 
+    it("ProfileDataChanged - set array attribute", async () => {
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+      await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setTopicPreferences(["windows"]);
+        editor.setAttribute("os", ["windows"]);
+      });
+      const expectedTrackedEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileDataChanged,
+        params: {
+          topic_preferences: ["windows"],
+          custom_attributes: {
+            "os.a": ["windows"],
+          },
+        },
+      });
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+    });
+
+    it("ProfileDataChanged - remove array attribute", async () => {
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+      await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setTopicPreferences(null);
+        editor.removeAttribute("os");
+      });
+      const expectedTrackedEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileDataChanged,
+        params: {
+          topic_preferences: null,
+          custom_attributes: {
+            os: null,
+          },
+        },
+      });
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+    });
+
+    it("ProfileDataChanged - partial update array attribute", async () => {
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+      await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.addToTopicPreferences(["windows"]);
+        editor.removeFromTopicPreferences(["linux"]);
+        editor.addToArray("os", ["windows"]);
+        editor.removeFromArray("os", ["linux"]);
+      });
+      const expectedTrackedEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileDataChanged,
+        params: {
+          topic_preferences: {
+            $add: ["windows"],
+            $remove: ["linux"],
+          },
+          custom_attributes: {
+            "os.a": {
+              $add: ["windows"],
+              $remove: ["linux"],
+            },
+          },
+        },
+      });
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+    });
+
+    it("ProfileDataChanged - double partial update array attribute", async () => {
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+      await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.addToTopicPreferences(["windows"]);
+        editor.addToTopicPreferences(["macos"]);
+        editor.removeFromTopicPreferences(["linux"]);
+        editor.removeFromTopicPreferences(["ubuntu"]);
+        editor.addToArray("os", ["windows"]);
+        editor.addToArray("os", ["macos"]);
+        editor.removeFromArray("os", ["linux"]);
+        editor.removeFromArray("os", ["ubuntu"]);
+      });
+      const expectedTrackedEvent = expect.objectContaining({
+        name: InternalSDKEvent.ProfileDataChanged,
+        params: {
+          topic_preferences: {
+            $add: ["windows", "macos"],
+            $remove: ["linux", "ubuntu"],
+          },
+          custom_attributes: {
+            "os.a": {
+              $add: ["windows", "macos"],
+              $remove: ["linux", "ubuntu"],
+            },
+          },
+        },
+      });
+      expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+    });
+
     it("ProfileDataChanged - set array attribute then remove item", async () => {
       const { profileModule, eventTracker } = await initProfileModule();
       const profile = await profileModule.get();
       await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setTopicPreferences(["sport", "cars", "boats"]);
+        editor.removeFromTopicPreferences(["boats"]);
         editor.setAttribute("interests", ["sport", "cars", "boats"]);
         editor.removeFromArray("interests", ["boats"]);
       });
       const expectedTrackedEvent = expect.objectContaining({
         name: InternalSDKEvent.ProfileDataChanged,
         params: {
+          topic_preferences: ["sport", "cars"],
           custom_attributes: {
             "interests.a": ["sport", "cars"],
           },
@@ -172,14 +276,17 @@ describe("Profile Module", () => {
       const { profileModule, eventTracker } = await initProfileModule();
       const profile = await profileModule.get();
       await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setTopicPreferences(null);
+        editor.removeFromTopicPreferences(["windows"]);
         editor.removeAttribute("os");
         editor.removeFromArray("os", ["windows"]);
       });
       const expectedTrackedEvent = expect.objectContaining({
         name: InternalSDKEvent.ProfileDataChanged,
         params: {
+          topic_preferences: null,
           custom_attributes: {
-            "os.a": null,
+            os: null,
           },
         },
       });
@@ -190,12 +297,15 @@ describe("Profile Module", () => {
       const { profileModule, eventTracker } = await initProfileModule();
       const profile = await profileModule.get();
       await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setTopicPreferences(null);
+        editor.addToTopicPreferences(["windows"]);
         editor.removeAttribute("os");
         editor.addToArray("os", ["windows"]);
       });
       const expectedTrackedEvent = expect.objectContaining({
         name: InternalSDKEvent.ProfileDataChanged,
         params: {
+          topic_preferences: ["windows"],
           custom_attributes: {
             "os.a": ["windows"],
           },
@@ -208,12 +318,15 @@ describe("Profile Module", () => {
       const { profileModule, eventTracker } = await initProfileModule();
       const profile = await profileModule.get();
       await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.addToTopicPreferences(["windows"]);
+        editor.setTopicPreferences(["linux"]);
         editor.addToArray("os", ["windows"]);
         editor.setAttribute("os", "linux");
       });
       const expectedTrackedEvent = expect.objectContaining({
         name: InternalSDKEvent.ProfileDataChanged,
         params: {
+          topic_preferences: ["linux"],
           custom_attributes: {
             "os.s": "linux",
           },
@@ -226,18 +339,178 @@ describe("Profile Module", () => {
       const { profileModule, eventTracker } = await initProfileModule();
       const profile = await profileModule.get();
       await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.addToTopicPreferences(["windows"]);
+        editor.setTopicPreferences(null);
         editor.addToArray("os", ["windows"]);
         editor.removeAttribute("os");
       });
       const expectedTrackedEvent = expect.objectContaining({
         name: InternalSDKEvent.ProfileDataChanged,
         params: {
+          topic_preferences: null,
           custom_attributes: {
-            "os.a": null,
+            os: null,
           },
         },
       });
       expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+    });
+
+    describe("Topic Preferences", () => {
+      it("ProfileDataChanged - set topic preferences", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setTopicPreferences(["sport", "Cars", "boats"]);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            topic_preferences: ["sport", "cars", "boats"],
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+
+      it("ProfileDataChanged - remove topic preferences", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setTopicPreferences(null);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            topic_preferences: null,
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+
+      it("ProfileDataChanged - partial update topic preferences", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.addToTopicPreferences(["Sport"]);
+          editor.removeFromTopicPreferences(["Boats"]);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            topic_preferences: {
+              $add: ["sport"],
+              $remove: ["boats"],
+            },
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+
+      it("ProfileDataChanged - set annd remove topic preferences", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setAttribute("some_string", "mystring");
+          editor.setTopicPreferences(["sport"]);
+          editor.removeFromTopicPreferences(["sport"]);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            custom_attributes: {
+              "some_string.s": "mystring",
+            },
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+
+      it("ProfileDataChanged - ignore when directly set more than 25 items", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        const topics = new Array(26).fill(0).map((_, i) => `topic_${i}`);
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setAttribute("some_string", "mystring");
+          editor.setTopicPreferences(topics);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            custom_attributes: {
+              "some_string.s": "mystring",
+            },
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+
+      it("ProfileDataChanged - ignore  more than 25 items", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        const topics = new Array(24).fill(0).map((_, i) => `topic_${i}`);
+        const additionalTopics = new Array(2).fill(0).map((_, i) => `add_topic_${i}`);
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setAttribute("some_string", "mystring");
+          editor.setTopicPreferences(topics);
+          editor.addToTopicPreferences(additionalTopics);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            topic_preferences: topics,
+            custom_attributes: {
+              "some_string.s": "mystring",
+            },
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+      it("ProfileDataChanged - ignore partially set more than 25 items", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        const topics = new Array(24).fill(0).map((_, i) => `topic_${i}`);
+        const additionalTopics = new Array(2).fill(0).map((_, i) => `add_topic_${i}`);
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setAttribute("some_string", "mystring");
+          editor.addToTopicPreferences(topics);
+          editor.addToTopicPreferences(additionalTopics);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            topic_preferences: {
+              $add: topics,
+            },
+            custom_attributes: {
+              "some_string.s": "mystring",
+            },
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
+      it("ProfileDataChanged - ignore partially remove more than 25 items", async () => {
+        const { profileModule, eventTracker } = await initProfileModule();
+        const profile = await profileModule.get();
+        const topics = new Array(24).fill(0).map((_, i) => `topic_${i}`);
+        const additionalTopics = new Array(2).fill(0).map((_, i) => `add_topic_${i}`);
+        await profile.edit((editor: ProfileAttributeEditor) => {
+          editor.setAttribute("some_string", "mystring");
+          editor.removeFromTopicPreferences(topics);
+          editor.removeFromTopicPreferences(additionalTopics);
+        });
+        const expectedTrackedEvent = expect.objectContaining({
+          name: InternalSDKEvent.ProfileDataChanged,
+          params: {
+            topic_preferences: {
+              $remove: topics,
+            },
+            custom_attributes: {
+              "some_string.s": "mystring",
+            },
+          },
+        });
+        expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
+      });
     });
   });
 
@@ -316,7 +589,9 @@ describe("Profile Module", () => {
       const profile = await profileModule.get();
       const customId = "undefined";
       expect(() => profile.identify({ customId })).rejects.toThrow(
-        new Error("Identify method called with a blocklisted identifier: `undefined`, Please ensure you have correctly implemented the API.")
+        new Error(
+          "Identify method called with a blocklisted identifier: `undefined`, Please ensure you have correctly implemented the API."
+        )
       );
     });
   });
