@@ -260,9 +260,9 @@ export class UserCompatModule {
     const profileAttributes = await this.dataStorage.getAttributes();
     const userAttributes = convertProfileDataAttributesToUserAttributes(profileAttributes);
     const userTags = convertProfileDataAttributesToUserTags(profileAttributes);
-    const version = await this.dataStorage.getVersion();
+    const requestVersion = await this.dataStorage.getVersion();
 
-    if (version < 1) {
+    if (requestVersion < 1) {
       // No attributes to send, skip
       return;
     }
@@ -273,7 +273,7 @@ export class UserCompatModule {
       return;
     }
 
-    const response = await this.webserviceExecutor.start(new AttributesSendService(userAttributes, userTags, version));
+    const response = await this.webserviceExecutor.start(new AttributesSendService(userAttributes, userTags, requestVersion));
 
     if (!isUnknownObject(response)) {
       throw new Error("Internal Error: bad server response (code 1)");
@@ -290,8 +290,15 @@ export class UserCompatModule {
     }
 
     // This should never happen
-    if (version !== responseVersion) {
+    if (requestVersion !== responseVersion) {
       Log.debug(logModuleName, "Server replied a txid for the wrong version, ignoring it.");
+      return;
+    }
+
+    // Ensure there's not another version bumped during the transaction.
+    const currentVersion = await this.dataStorage.getVersion();
+    if (currentVersion > requestVersion) {
+      Log.debug(logModuleName, "Server replied a txid for an outdated local version, ignoring it.");
       return;
     }
 

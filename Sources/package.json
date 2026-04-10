@@ -1,20 +1,5 @@
 {
-  "packageManager" : "yarn@3.2.0",
-  "scripts" : {
-    "build" : "yarn type-check && yarn build-webpack",
-    "doc" : "cd public\/types\/ && typedoc --tsconfig ..\/..\/tsconfig.typedoc.json --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
-    "test" : "jest",
-    "lint" : "eslint --no-fix \"src\/**\"",
-    "type-check" : "tsc --build",
-    "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
-    "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
-  },
-  "license" : "Proprietary",
-  "repository" : {
-
-  },
-  "private" : true,
-  "version" : "4.3.0",
+  "majorVersion" : "4",
   "devDependencies" : {
     "eslint-plugin-playwright" : "^2.9.0",
     "@eslint\/eslintrc" : "^3.1.0",
@@ -22,9 +7,7 @@
     "@playwright\/test" : "^1.58.2",
     "@eslint\/js" : "^9.7.0"
   },
-  "main" : "index.js",
-  "name" : "batch-webpush-sdk",
-  "majorVersion" : "4",
+  "license" : "Proprietary",
   "dependencies" : {
     "typescript" : "5.5.4",
     "node-fetch" : "2.6.6",
@@ -78,5 +61,22 @@
     "terser-webpack-plugin" : "^3.1.0",
     "typedoc" : "^0.26.11",
     "eslint-config-airbnb-base" : "^15.0.0"
+  },
+  "repository" : {
+
+  },
+  "private" : true,
+  "packageManager" : "yarn@3.2.0",
+  "name" : "batch-webpush-sdk",
+  "version" : "4.3.1",
+  "main" : "index.js",
+  "scripts" : {
+    "build" : "yarn type-check && yarn build-webpack",
+    "doc" : "cd public\/types\/ && typedoc --tsconfig ..\/..\/tsconfig.typedoc.json --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
+    "test" : "jest",
+    "lint" : "eslint --no-fix \"src\/**\"",
+    "type-check" : "tsc --build",
+    "\/\/" : "All scripts here are overwritten for the open source release. Edit package.overlay.json if you need to edit scripts part of the OSS release.",
+    "lint:report" : "eslint --no-fix --output-file eslint_report.json --format json \"src\/**\""
   }
 }
