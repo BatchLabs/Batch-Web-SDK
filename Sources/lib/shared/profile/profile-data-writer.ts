@@ -5,6 +5,7 @@ import { isNativeOperation } from "com.batch.shared/helpers/typed-attribute";
 import { Log } from "com.batch.shared/logger";
 import { addToArray, removeFromArray, validateUpdatedTopicPreferences } from "com.batch.shared/profile/profile-data-helper";
 import {
+  isPartialUpdateArrayObject,
   isProfileNullableStringArrayAttribute,
   ProfileAttributeType,
   ProfileCustomDataAttributes,
@@ -171,13 +172,29 @@ export default class ProfileDataWriter {
       );
     }
 
+    const maxArrayItems = this.compatModeEnabled ? Consts.MaxProfileArrayItemsCompat : Consts.MaxProfileArrayItems;
+    const platform = this.compatModeEnabled ? "MEP" : "CEP";
+
     for (const element of arrayAttributes) {
-      if (isSet(element.value) && element.value.size >= Consts.MaxProfileArrayItems) {
-        throw new Error(`An ARRAY attribute cannot hold more than ${Consts.MaxProfileArrayItems} items. Rolling back transaction.`);
+      const setsToCheck = [];
+
+      if (isSet(element.value)) {
+        setsToCheck.push(element.value);
+      } else if (isPartialUpdateArrayObject(element.value)) {
+        if (isSet(element.value.$add)) {
+          setsToCheck.push(element.value.$add);
+        }
+        if (isSet(element.value.$remove)) {
+          setsToCheck.push(element.value.$remove);
+        }
+      }
+
+      if (setsToCheck.some(set => set.size > maxArrayItems)) {
+        throw new Error(`An ARRAY attribute cannot hold more than ${maxArrayItems} items on ${platform}. Rolling back transaction.`);
       }
     }
 
-    if (Object.keys(this.customAttributes).length >= Consts.MaxProfileAttributesCount) {
+    if (Object.keys(this.customAttributes).length > Consts.MaxProfileAttributesCount) {
       throw new Error(`Custom data cannot hold more than ${Consts.MaxProfileAttributesCount} attributes. Rolling back transaction.`);
     }
 

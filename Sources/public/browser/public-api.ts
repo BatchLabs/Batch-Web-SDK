@@ -56,9 +56,10 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
 
   let instance: Promise<ISDK> | null = null;
   function getInstance(): Promise<ISDK> {
-    return (instance || Promise.reject("Batch is not initialized yet. Have you called 'setup' before calling Batch's API?")).catch(e => {
-      // tslint:disable-next-line:no-string-throw
-      throw "Batch SDK: Could not initialize Public API: " + e;
+    return (
+      instance ?? Promise.reject(new Error("Batch is not initialized yet. Have you called 'setup' before calling Batch's API?"))
+    ).catch(e => {
+      throw new Error("Batch SDK: Could not initialize Public API: " + (e instanceof Error ? e.message : e));
     });
   }
 
@@ -205,11 +206,14 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
           // init ui components
           const uiReady = uiComponents.init(uiConfig || {});
 
-          void sdk.getInstallationID().then(iid => {
-            if (sdkConfig.dev) {
-              Log.public("Installation ID: " + (iid || "unknown"));
-            }
-          });
+          void sdk
+            .getInstallationID()
+            .then(iid => {
+              if (sdkConfig.dev) {
+                Log.public("Installation ID: " + (iid || "unknown"));
+              }
+            })
+            .catch(e => Log.warn(logModuleName, "Could not get installation ID", e));
 
           /**
            * Start emitting browser events as soon as the ui is ready.
@@ -478,7 +482,7 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
 // Dirty trick to extract the public API type, until we refactor it into a separate .d.ts
 // https://stackoverflow.com/a/46587275
 // eslint-disable-next-line
-const returnTypeExtractor = <T>(_fn: () => T) => ({} as T);
+const returnTypeExtractor = <T>(_fn: () => T) => ({}) as T;
 const publicApiType = returnTypeExtractor(newPublicAPI);
 
 export type IBatchSDK = typeof publicApiType;

@@ -215,7 +215,7 @@ describe("User data: Attributes", () => {
     );
   });
 
-  it("should return throw error when volume limits are exceeded", () => {
+  it("should return throw error when volume limits are exceeded on CEP", () => {
     const operations: IProfileOperation[] = [];
     const values = [];
     for (let i = 0; i < 26; i++) {
@@ -226,9 +226,26 @@ describe("User data: Attributes", () => {
       key: "hobbies",
       value: values,
     });
+    const userDataWriter = new ProfileDataWriter(false);
+    expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
+      new Error(`An ARRAY attribute cannot hold more than ${Consts.MaxProfileArrayItems} items on CEP. Rolling back transaction.`)
+    );
+  });
+
+  it("should return throw error when volume limits are exceeded on MEP", () => {
+    const operations: IProfileOperation[] = [];
+    const values = [];
+    for (let i = 0; i < 51; i++) {
+      values.push(`AMHE${i}`);
+    }
+    operations.push({
+      operation: ProfileDataOperation.AddToArray,
+      key: "hobbies",
+      value: values,
+    });
     const userDataWriter = new ProfileDataWriter(true);
     expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
-      new Error(`An ARRAY attribute cannot hold more than ${Consts.MaxProfileArrayItems} items. Rolling back transaction.`)
+      new Error(`An ARRAY attribute cannot hold more than ${Consts.MaxProfileArrayItemsCompat} items on MEP. Rolling back transaction.`)
     );
   });
 });

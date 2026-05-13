@@ -393,8 +393,11 @@ export default abstract class BaseSDK implements ISDK {
    * Check if one of the permission, subscription of subscribed changed
    */
   public async checkUpdate(): Promise<void> {
-    await this.getSubscriptionState();
-    return;
+    try {
+      await this.getSubscriptionState();
+    } catch (e) {
+      Log.warn(logModuleName, "checkUpdate failed", e);
+    }
   }
 
   /**

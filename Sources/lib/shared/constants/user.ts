@@ -13,6 +13,7 @@ export const Consts = {
   MaxEventObjectDepth: 3,
   MaxProfileAttributesCount: 50,
   MaxProfileArrayItems: 25,
+  MaxProfileArrayItemsCompat: 50,
   MaxProfileArrayAttributesCount: 15,
   EmailAddressMaxLength: 128,
   EmailAddressRegexp: /^[^@]+@[A-z0-9\-.]+\.[A-z0-9]+$/,

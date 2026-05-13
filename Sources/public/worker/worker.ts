@@ -37,11 +37,14 @@ if (!self.isSecureContext) {
 const moduleName = "ServiceWorker";
 
 const broadcast = (message: unknown): void => {
-  self.clients.matchAll().then((clients: Client[]) => {
-    clients.forEach(client => {
-      client.postMessage(message);
-    });
-  });
+  self.clients
+    .matchAll()
+    .then((clients: Client[]) => {
+      clients.forEach(client => {
+        client.postMessage(message);
+      });
+    })
+    .catch(e => Log.warn(moduleName, "broadcast failed", e));
 };
 
 const getLastKnownGoodConfiguration = (): Promise<IPrivateBatchSDKConfiguration> => {
