@@ -7,6 +7,7 @@ import { Log } from "../logger";
 import { EventTrackerService } from "../webservice/event-tracker";
 import { IWebserviceExecutor } from "../webservice/executor";
 import HttpError from "../webservice/http-error";
+import { ProfileIdentifyDeduplicator } from "./profile-identify-deduplicator";
 
 const FORBIDDEN_LOG_COOLDOWN = 10000; // 10s
 
@@ -68,9 +69,13 @@ export default class EventTracker {
     // Put events over the limit back into the buffer
     this.buffer = sortedBuffer.slice(this.limit, sortedBuffer.length);
 
+    // Remove useless duplicated _PROFILE_IDENTIFY events before sending.
+    // Events remain in the buffer-slice tracking, so they are properly cleaned up on success.
+    const deduplicatedEvents = ProfileIdentifyDeduplicator.deduplicate(eventsToSend);
+
     this.attemptRunning = true;
     this.webserviceExecutor
-      .start(new EventTrackerService(eventsToSend))
+      .start(new EventTrackerService(deduplicatedEvents))
       .then(() => {
         this.attemptRunning = false;
         this.buffer = this.buffer.filter(b => !eventsToSend?.map(e => e.id).includes(b.id));

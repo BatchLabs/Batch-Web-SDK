@@ -41,6 +41,11 @@ describe("Profile data editor", () => {
           type: ProfileAttributeType.ARRAY,
           value: ["stringTooLong".repeat(30)],
         })
+        // Non-array value for typed ARRAY must not throw — it should log and be ignored
+        .setAttribute("array", {
+          type: ProfileAttributeType.ARRAY,
+          value: "not_an_array",
+        })
         .addToArray("interests", [""])
         .addToArray("", [""])
         .addToArray(1, [1])
@@ -55,6 +60,18 @@ describe("Profile data editor", () => {
       const operations = editor.getOperations();
 
       expect(operations).toEqual([]);
+    });
+
+    it("accepts 26 identical values in addToArray / removeFromArray after dedup", () => {
+      const editor = new ProfileAttributeEditor(false);
+      editor.addToArray("tags", Array(26).fill("a")).removeFromArray("tags", Array(26).fill("b"));
+
+      const operations = editor.getOperations();
+
+      expect(operations).toEqual([
+        { key: "tags", operation: "ADD_TO_ARRAY", value: ["a"] },
+        { key: "tags", operation: "REMOVE_FROM_ARRAY", value: ["b"] },
+      ]);
     });
 
     it("it can set, remove and clear attributes", () => {

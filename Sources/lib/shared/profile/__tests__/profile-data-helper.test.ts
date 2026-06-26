@@ -1,6 +1,7 @@
 import { Consts } from "com.batch.shared/constants/user";
 import {
   addToArray,
+  deduplicateKeepLast,
   isValidAttributeKey,
   isValidStringArrayValue,
   isValidStringValue,
@@ -12,6 +13,28 @@ import {
 import { PartialUpdateArrayObject } from "com.batch.shared/profile/profile-data-types";
 
 describe("profile data helper", () => {
+  describe("deduplicateKeepLast", () => {
+    it("removes earlier duplicates keeping last occurrence", () => {
+      expect(deduplicateKeepLast(["d", "e", "d", "a", "f", "a"])).toEqual(["e", "d", "f", "a"]);
+    });
+
+    it("returns the same array when no duplicates", () => {
+      expect(deduplicateKeepLast(["a", "b", "c"])).toEqual(["a", "b", "c"]);
+    });
+
+    it("returns empty array for empty input", () => {
+      expect(deduplicateKeepLast([])).toEqual([]);
+    });
+
+    it("handles single-element arrays", () => {
+      expect(deduplicateKeepLast(["a"])).toEqual(["a"]);
+    });
+
+    it("handles all-duplicate arrays", () => {
+      expect(deduplicateKeepLast(["a", "a", "a"])).toEqual(["a"]);
+    });
+  });
+
   describe("isValidAttributeKey", () => {
     it("accepts valid keys", () => {
       expect(isValidAttributeKey("valid_key_123")).toBe(true);
@@ -74,11 +97,22 @@ describe("profile data helper", () => {
       expect(validateAndNormalizeTopicPreferences(["Foo", "Bar_Baz"])).toEqual(["foo", "bar_baz"]);
     });
 
+    it("deduplicates topics using last-wins after normalization", () => {
+      expect(validateAndNormalizeTopicPreferences(["Sport", "news", "sport"])).toEqual(["news", "sport"]);
+    });
+
+    it("accepts 26 topics when one is a case-folded duplicate of another (dedup yields 25)", () => {
+      const topics = Array.from({ length: 25 }, (_, i) => `topic_${i}`);
+      topics.push("topic_0");
+      expect(validateAndNormalizeTopicPreferences(topics)).toHaveLength(25);
+      expect(validateAndNormalizeTopicPreferences(topics)[topics.length - 2]).toBe("topic_0");
+    });
+
     it("rejects invalid arrays", () => {
       expect(() => validateAndNormalizeTopicPreferences([])).toThrow();
       expect(() => validateAndNormalizeTopicPreferences("nope" as unknown as string[])).toThrow();
       expect(() =>
-        validateAndNormalizeTopicPreferences(Array.from({ length: Consts.MaxEventArrayItems + 1 }, (_, i) => `t${i}`))
+        validateAndNormalizeTopicPreferences(Array.from({ length: Consts.MaxTopicPreferenceItems + 1 }, (_, i) => `t${i}`))
       ).toThrow();
     });
   });
@@ -119,6 +153,12 @@ describe("profile data helper", () => {
       expect(original).toEqual(new Set(["a"]));
     });
 
+    it("applies last-wins dedup when adding to an existing set", () => {
+      // existing {a, b} + add [a, c] → combined ["a","b","a","c"] → last-wins → ["b","a","c"]
+      const result = addToArray(["a", "c"], new Set(["a", "b"]), false) as Set<string>;
+      expect([...result]).toEqual(["b", "a", "c"]);
+    });
+
     it("adds to partial updates without mutation", () => {
       const original: PartialUpdateArrayObject = { $add: new Set(["a"]), $remove: new Set(["c"]) };
       const result = addToArray(["b"], original, false) as PartialUpdateArrayObject;
@@ -128,10 +168,24 @@ describe("profile data helper", () => {
       expect(original.$add).toEqual(new Set(["a"]));
     });
 
+    it("applies last-wins dedup when adding to a partial update $add", () => {
+      // existing $add {a, b} + add [a, c] → combined ["a","b","a","c"] → last-wins → ["b","a","c"]
+      const original: PartialUpdateArrayObject = { $add: new Set(["a", "b"]) };
+      const result = addToArray(["a", "c"], original, false) as PartialUpdateArrayObject;
+      expect([...(result.$add as Set<string>)]).toEqual(["b", "a", "c"]);
+    });
+
     it("creates a new attribute for null or undefined", () => {
       expect(addToArray(["a"], null, false)).toEqual(new Set(["a"]));
       expect(addToArray(["a"], undefined, true)).toEqual(new Set(["a"]));
       expect(addToArray(["a"], undefined, false)).toEqual({ $add: new Set(["a"]) });
+    });
+
+    it("deduplicates values in new attributes (last-wins)", () => {
+      expect([...(addToArray(["a", "b", "a"], null, false) as Set<string>)]).toEqual(["b", "a"]);
+      expect([...(addToArray(["a", "b", "a"], undefined, true) as Set<string>)]).toEqual(["b", "a"]);
+      const partial = addToArray(["a", "b", "a"], undefined, false) as PartialUpdateArrayObject;
+      expect([...(partial.$add as Set<string>)]).toEqual(["b", "a"]);
     });
   });
 
@@ -158,10 +212,23 @@ describe("profile data helper", () => {
       expect(original.$remove).toEqual(new Set(["c"]));
     });
 
+    it("applies last-wins dedup when removing duplicates across calls", () => {
+      // existing $remove {b} + remove [a, b, a] → combined ["b","a","b","a"] → last-wins → ["b","a"]
+      // Wait: combined is ["b", "a", "b", "a"] so last-wins gives ["b", "a"] which removes earlier "b" and earlier "a"
+      const original: PartialUpdateArrayObject = { $remove: new Set(["b"]) };
+      const result = removeFromArray(["a", "b", "a"], original, false) as PartialUpdateArrayObject;
+      expect([...(result.$remove as Set<string>)]).toEqual(["b", "a"]);
+    });
+
     it("creates a new attribute for null or undefined", () => {
       expect(removeFromArray(["a"], null, true)).toBeNull();
       expect(removeFromArray(["a"], undefined, true)).toBeNull();
       expect(removeFromArray(["a"], undefined, false)).toEqual({ $remove: new Set(["a"]) });
+    });
+
+    it("deduplicates values in new $remove attributes (last-wins)", () => {
+      const partial = removeFromArray(["a", "b", "a"], undefined, false) as PartialUpdateArrayObject;
+      expect([...(partial.$remove as Set<string>)]).toEqual(["b", "a"]);
     });
   });
 });

@@ -1,4 +1,5 @@
 import EventTracker from "com.batch.shared/event/event-tracker";
+import { exceedsMaxPayloadSize } from "com.batch.shared/helpers/payload-size";
 import { isString } from "com.batch.shared/helpers/primitive";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent from "com.batch.shared/local-sdk-events";
@@ -269,11 +270,20 @@ export class ProfileModule implements BatchSDK.IProfile {
     const nativeAttributes = await dataWriter.applyNativeOperations(operations);
     const customAttributes = await dataWriter.applyCustomOperations(operations);
 
-    // Install-based compatibility
+    // Build event before running compat so we can validate the payload size
+    const event = new ProfileEventBuilder().withCustomAttributes(customAttributes).withNativeAttributes(nativeAttributes).build();
+
+    if (event) {
+      const serialized = JSON.stringify(event.params);
+      if (exceedsMaxPayloadSize(serialized)) {
+        Log.error(logModuleName, `profile.edit() rejected: payload exceeds the maximum allowed size (25 kB). No changes were applied.`);
+        return;
+      }
+    }
+
+    // Install-based compatibility (skipped if payload was too large)
     await this.userCompatModule.applyInstallOperations(operations);
 
-    // Send profile data changed event
-    const event = new ProfileEventBuilder().withCustomAttributes(customAttributes).withNativeAttributes(nativeAttributes).build();
     if (event) {
       this.eventTracker.track(event);
     }

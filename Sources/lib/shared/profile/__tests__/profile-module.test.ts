@@ -356,6 +356,46 @@ describe("Profile Module", () => {
       expect(eventTracker.track).toHaveBeenCalledWith(expectedTrackedEvent);
     });
 
+    it("ProfileDataChanged triggered when payload is ~20 kB", async () => {
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+
+      (eventTracker.track as jest.Mock).mockClear();
+
+      // 3 array attributes × 25 items × 260-char strings ≈ 20 kB, well under the 25 kB limit
+      const validArray = Array.from({ length: 25 }, (_, i) => "a".repeat(256) + `_${String(i).padStart(3, "0")}`);
+      await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setAttribute("arr_0", validArray);
+        editor.setAttribute("arr_1", validArray);
+        editor.setAttribute("arr_2", validArray);
+      });
+
+      expect(eventTracker.track).toHaveBeenCalledWith(expect.objectContaining({ name: InternalSDKEvent.ProfileDataChanged }));
+    });
+
+    it("ProfileDataChanged NOT triggered when payload exceeds 25 kB", async () => {
+      const { profileModule, eventTracker } = await initProfileModule();
+      const profile = await profileModule.get();
+
+      // Clear events from initialization (system param changed events)
+      (eventTracker.track as jest.Mock).mockClear();
+
+      // 4 array attributes × 25 items × 300-char strings serializes above 25 kB
+      const largeArray = Array.from({ length: 25 }, (_, i) => "a".repeat(296) + `_${String(i).padStart(3, "0")}`);
+      await profile.edit((editor: ProfileAttributeEditor) => {
+        editor.setAttribute("arr_0", largeArray);
+        editor.setAttribute("arr_1", largeArray);
+        editor.setAttribute("arr_2", largeArray);
+        editor.setAttribute("arr_3", largeArray);
+      });
+
+      expect(eventTracker.track).not.toHaveBeenCalledWith(
+        expect.objectContaining({ name: InternalSDKEvent.ProfileDataChanged })
+      );
+      // No events at all: custom attr operations don't produce compat events
+      expect(eventTracker.track).not.toHaveBeenCalled();
+    });
+
     describe("Topic Preferences", () => {
       it("ProfileDataChanged - set topic preferences", async () => {
         const { profileModule, eventTracker } = await initProfileModule();

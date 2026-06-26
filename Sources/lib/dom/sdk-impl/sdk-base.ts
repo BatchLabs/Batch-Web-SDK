@@ -6,6 +6,7 @@ import EventTracker from "com.batch.shared/event/event-tracker";
 import { PublicEvent } from "com.batch.shared/event/public-event";
 import deepEqual from "com.batch.shared/helpers/deep-obj-compare";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
+import { exceedsMaxPayloadSize } from "com.batch.shared/helpers/payload-size";
 import { asBoolean, isString } from "com.batch.shared/helpers/primitive";
 import { Browser, UserAgent } from "com.batch.shared/helpers/user-agent";
 import UUID from "com.batch.shared/helpers/uuid";
@@ -357,7 +358,15 @@ export default abstract class BaseSDK implements ISDK {
   public async trackEvent(name: string, eventDataParams?: BatchSDK.EventDataParams): Promise<void> {
     try {
       const eventData = new EventData(eventDataParams);
-      this.eventTracker?.track(new PublicEvent(name, await this.probationManager.isInPushProbation(), eventData));
+      const event = new PublicEvent(name, await this.probationManager.isInPushProbation(), eventData);
+      if (exceedsMaxPayloadSize(JSON.stringify(event.getSerializedParams()))) {
+        Log.error(
+          logModuleName,
+          `trackEvent("${name}") rejected: payload exceeds the maximum allowed size (25 kB). No changes were applied.`
+        );
+        return;
+      }
+      this.eventTracker?.track(event);
     } catch (e) {
       Log.error(logModuleName, e);
       return;

@@ -1,4 +1,5 @@
 export const Consts = {
+  MaxPayloadSizeBytes: 25 * 1024,
   AttributeKeyRegexp: /^[a-zA-Z0-9_]{1,30}$/,
   AttributeStringMaxLengthMEP: 64,
   AttributeStringMaxLengthCEP: 300,

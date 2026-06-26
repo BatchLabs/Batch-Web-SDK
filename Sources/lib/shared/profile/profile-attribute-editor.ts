@@ -3,6 +3,7 @@ import { isArray, isBoolean, isDate, isFloat, isNumber, isString, isURL } from "
 import { isProfileTypedAttributeValue } from "com.batch.shared/helpers/typed-attribute";
 import { Log } from "com.batch.shared/logger";
 import {
+  deduplicateKeepLast,
   isValidAttributeKey,
   isValidStringArrayValue,
   isValidStringValue,
@@ -318,14 +319,20 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return this;
     }
 
-    if (!isValidStringArrayValue(value, key)) {
+    if (!isArray(value)) {
+      Log.warn(logModuleName, `Value must be an array of string. Ignoring attribute ${key}`);
+      return this;
+    }
+
+    const deduped = deduplicateKeepLast(value);
+    if (!isValidStringArrayValue(deduped, key)) {
       return this;
     }
 
     this._enqueueOperation({
       operation: ProfileDataOperation.AddToArray,
       key: key.toLowerCase(),
-      value: value,
+      value: deduped,
     });
     return this;
   }
@@ -345,14 +352,20 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return this;
     }
 
-    if (!isValidStringArrayValue(value, key)) {
+    if (!isArray(value)) {
+      Log.warn(logModuleName, `Value must be an array of string. Ignoring attribute ${key}`);
+      return this;
+    }
+
+    const deduped = deduplicateKeepLast(value);
+    if (!isValidStringArrayValue(deduped, key)) {
       return this;
     }
 
     this._enqueueOperation({
       operation: ProfileDataOperation.RemoveFromArray,
       key: key.toLowerCase(),
-      value: value,
+      value: deduped,
     });
     return this;
   }
@@ -417,10 +430,12 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return userAttribute;
     }
     if (isArray(value)) {
-      if (!isValidStringArrayValue(value, key)) {
+      const lowercased = (value as string[]).map(val => val.toLocaleLowerCase());
+      const deduped = deduplicateKeepLast(lowercased);
+      if (!isValidStringArrayValue(deduped, key)) {
         return;
       }
-      userAttribute.value = new Set(value.map(val => val.toLocaleLowerCase()));
+      userAttribute.value = new Set(deduped);
       userAttribute.type = ProfileAttributeType.ARRAY;
       return userAttribute;
     }
@@ -532,10 +547,16 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
         return;
       }
       case ProfileAttributeType.ARRAY: {
-        if (!isValidStringArrayValue(userAttribute.value, key)) {
+        if (!isArray(userAttribute.value)) {
+          Log.warn(logModuleName, `Invalid attribute value for the ARRAY type. Must be an array of strings. Ignoring attribute ${key}.`);
           return;
         }
-        return new Set(userAttribute.value.map((val: string) => val.toLocaleLowerCase()));
+        const lowercased = (userAttribute.value as string[]).map((val: string) => val.toLocaleLowerCase());
+        const deduped = deduplicateKeepLast(lowercased);
+        if (!isValidStringArrayValue(deduped, key)) {
+          return;
+        }
+        return new Set(deduped);
       }
       default:
         Log.warn("This type does not exist. Ignoring attribute.");

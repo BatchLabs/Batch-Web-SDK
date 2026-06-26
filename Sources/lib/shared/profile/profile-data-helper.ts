@@ -7,6 +7,23 @@ import { isPartialUpdateArrayObject, ProfileNullableStringArrayAttribute } from 
 const logModuleName = "Profile Attribute Editor";
 
 /**
+ * Deduplicate an array of strings keeping the last occurrence of each value (last-wins).
+ * Example: ["d","e","d","a","f","a"] → ["e","d","f","a"]
+ */
+export function deduplicateKeepLast(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (let i = values.length - 1; i >= 0; i--) {
+    const val = values[i];
+    if (!seen.has(val)) {
+      seen.add(val);
+      result.unshift(val);
+    }
+  }
+  return result;
+}
+
+/**
  * Helper method to validate an attribute's key
  *
  * @return true if key is valid, else log a warning message and return false
@@ -103,10 +120,12 @@ export function validateAndNormalizeTopicPreferences(value: string[]): string[] 
   if (!isArray(value)) {
     throw new Error("TopicPreferences must be an array of string.");
   }
-  if (value.length === 0 || value.length > Consts.MaxEventArrayItems) {
-    throw new Error(`TopicPreferences must not be empty or longer than ${Consts.MaxEventArrayItems}.`);
+  const normalized = value.map(it => validateAndNormalizeTopic(it));
+  const deduped = deduplicateKeepLast(normalized);
+  if (deduped.length === 0 || deduped.length > Consts.MaxTopicPreferenceItems) {
+    throw new Error(`TopicPreferences must not be empty or longer than ${Consts.MaxTopicPreferenceItems}.`);
   }
-  return value.map(it => validateAndNormalizeTopic(it));
+  return deduped;
 }
 
 /**
@@ -151,27 +170,25 @@ export function addToArray(
 ): ProfileNullableStringArrayAttribute {
   // Case: Array attribute already exists and is a Set
   if (targetAttribute && isSet(targetAttribute)) {
-    const updatedAttribute = new Set(targetAttribute);
-    values.forEach(updatedAttribute.add, updatedAttribute);
-    return updatedAttribute;
+    return new Set(deduplicateKeepLast(Array.from(targetAttribute).concat(values)));
   }
   // Case: Array attribute already exists and is a Partial Update object ($add/$remove)
   else if (targetAttribute && isPartialUpdateArrayObject(targetAttribute)) {
     const updatedAttribute = deepClone(targetAttribute);
     if (updatedAttribute.$add) {
-      values.forEach(updatedAttribute.$add.add, updatedAttribute.$add);
+      updatedAttribute.$add = new Set(deduplicateKeepLast(Array.from(updatedAttribute.$add).concat(values)));
     } else {
-      updatedAttribute.$add = new Set(values);
+      updatedAttribute.$add = new Set(deduplicateKeepLast(values));
     }
     return updatedAttribute;
   }
   // Case: Array attribute already exists and is null
   else if (targetAttribute === null) {
-    return new Set(values);
+    return new Set(deduplicateKeepLast(values));
   }
   // Case: Array attribute doesn't exist
   else {
-    return compatModeEnabled ? new Set(values) : { $add: new Set(values) };
+    return compatModeEnabled ? new Set(deduplicateKeepLast(values)) : { $add: new Set(deduplicateKeepLast(values)) };
   }
 }
 
@@ -211,9 +228,9 @@ export function removeFromArray(
   else if (targetAttribute && isPartialUpdateArrayObject(targetAttribute)) {
     const updatedAttribute = deepClone(targetAttribute);
     if (updatedAttribute.$remove) {
-      values.forEach(updatedAttribute.$remove.add, updatedAttribute.$remove);
+      updatedAttribute.$remove = new Set(deduplicateKeepLast(Array.from(updatedAttribute.$remove).concat(values)));
     } else {
-      updatedAttribute.$remove = new Set(values);
+      updatedAttribute.$remove = new Set(deduplicateKeepLast(values));
     }
     return updatedAttribute;
   }
@@ -223,6 +240,6 @@ export function removeFromArray(
   }
   // Case: Array attribute doesn't exist
   else {
-    return compatModeEnabled ? null : { $remove: new Set(values) };
+    return compatModeEnabled ? null : { $remove: new Set(deduplicateKeepLast(values)) };
   }
 }

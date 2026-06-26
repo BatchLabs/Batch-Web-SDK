@@ -61,3 +61,31 @@ test("it can write and custom identifier", async () => {
   // cleaning
   await profilePersistence.removeData("cus");
 });
+
+test("trackEvent is rejected when payload exceeds 25 kB", async () => {
+  // 20 string-array attributes × 25 items × 300-char strings serializes well above 25 kB
+  const largeArray = Array.from({ length: 25 }, (_, i) => "a".repeat(296) + `_${String(i).padStart(3, "0")}`);
+  const attrs = {};
+  for (let i = 0; i < 20; i++) {
+    attrs[`a${String(i).padStart(2, "0")}`] = largeArray;
+  }
+
+  const mockTrack = jest.spyOn(sdk.eventTracker, "track").mockImplementation(() => {});
+  await sdk.trackEvent("oversized_event", { attributes: attrs });
+  expect(mockTrack).not.toHaveBeenCalled();
+  mockTrack.mockRestore();
+});
+
+test("trackEvent is accepted when payload is ~20 kB", async () => {
+  // 10 string-array attributes × 25 items × 77-char strings ≈ 20 kB, well under the 25 kB limit
+  const array = Array.from({ length: 25 }, (_, i) => "a".repeat(73) + `_${String(i).padStart(3, "0")}`);
+  const attrs = {};
+  for (let i = 0; i < 10; i++) {
+    attrs[`a${String(i).padStart(2, "0")}`] = array;
+  }
+
+  const mockTrack = jest.spyOn(sdk.eventTracker, "track").mockImplementation(() => {});
+  await sdk.trackEvent("valid_event", { attributes: attrs });
+  expect(mockTrack).toHaveBeenCalledTimes(1);
+  mockTrack.mockRestore();
+});
