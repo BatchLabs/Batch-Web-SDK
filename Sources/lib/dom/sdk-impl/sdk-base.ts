@@ -7,7 +7,7 @@ import { PublicEvent } from "com.batch.shared/event/public-event";
 import deepEqual from "com.batch.shared/helpers/deep-obj-compare";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
 import { exceedsMaxPayloadSize } from "com.batch.shared/helpers/payload-size";
-import { asBoolean, isString } from "com.batch.shared/helpers/primitive";
+import { isString } from "com.batch.shared/helpers/primitive";
 import { Browser, UserAgent } from "com.batch.shared/helpers/user-agent";
 import UUID from "com.batch.shared/helpers/uuid";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";
@@ -26,6 +26,12 @@ import { ISDK, ISubscriptionState, Permission } from "./sdk";
 
 const logModuleName = "sdk-base";
 
+/** Rejection message when the browser lacks push support. */
+export const PUSH_MESSAGING_NOT_SUPPORTED = "Push messaging isn't supported.";
+
+/** Rejection message when the 'push' module is disabled in the SDK configuration. */
+export const PUSH_MESSAGING_DISABLED = "Push messaging has been disabled. See https://doc.batch.com";
+
 /**
  * SDK working with a database only
  */
@@ -37,7 +43,13 @@ export default abstract class BaseSDK implements ISDK {
   protected webserviceExecutor?: IWebserviceExecutor;
   protected parameterStore: ParameterStore;
   protected probationManager: ProbationManager;
-  protected profileModule?: ProfileModule;
+  // Always instantiated during setup(): the profile/attributes API is Core.
+  protected profileModule!: ProfileModule;
+
+  /**
+   * Whether the push module is enabled. Defaults to on.
+   */
+  protected pushEnabled: boolean = true;
 
   /**
    * Keep the last subscription and subscribe state
@@ -77,7 +89,8 @@ export default abstract class BaseSDK implements ISDK {
         throw new Error("Configuration error: 'authKey' is mandatory");
       }
 
-      this.config.dev = asBoolean(this.config.dev, false);
+      // Push is opt-out: on unless explicitly disabled.
+      this.pushEnabled = this.config.pushEnabled ?? true;
 
       /**
        * Init the parameter store
@@ -114,9 +127,11 @@ export default abstract class BaseSDK implements ISDK {
         referrer = this.config.internal.referrer;
       }
       const persistence = await UserDataPersistence.getInstance();
-      this.webserviceExecutor = new WebserviceExecutor(this.config.apiKey, this.config.authKey, this.config.dev, referrer, parameterStore);
+      this.webserviceExecutor = new WebserviceExecutor(this.config.apiKey, this.config.authKey, referrer, parameterStore);
       this.probationManager = new ProbationManager(parameterStore);
-      this.eventTracker = new EventTracker(this.config.dev, this.webserviceExecutor);
+      // Core transport: always built. EventTracker registers push tokens and
+      // backs the profile/attributes API, both of which are Core.
+      this.eventTracker = new EventTracker(this.webserviceExecutor);
       this.profileModule = new ProfileModule(this.probationManager, persistence, this.webserviceExecutor, this.eventTracker, this.config);
 
       /**
@@ -138,7 +153,7 @@ export default abstract class BaseSDK implements ISDK {
         try {
           if (window !== null && typeof window.navigator !== "undefined" && "permissions" in window.navigator) {
             // As of writing only Firefox has this, so don't add that in the .d.ts patches
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // oxlint-disable-next-line typescript/no-explicit-any
             const permissions = await (window.navigator as any).permissions.query({ name: "notifications" });
             permissions.addEventListener("change", this.checkUpdate.bind(this));
           } else {
@@ -183,9 +198,14 @@ export default abstract class BaseSDK implements ISDK {
         .getParameterValue<boolean>(keysByProvider.profile.Subscribed)
         .then(s => (this.lastSubscribed = s === true));
 
+      await Promise.all([stPromise, sdPromise]);
+
+      // Sanitize only once the stored value is actually loaded: sanitizing before the
+      // await would run against a stale value, then be overwritten by the resolved
+      // subscription. A legacy Safari APNS token (a plain string) is discarded here so
+      // it is never emitted as a malformed WPP token.
       this.lastSubscription = this.sanitizeSubscription(this.lastSubscription);
 
-      await Promise.all([stPromise, sdPromise]);
       this.lastPermission = await this.readPermission();
       this.lastState = {
         permission: this.lastPermission || Permission.Default,
@@ -272,8 +292,11 @@ export default abstract class BaseSDK implements ISDK {
    * - a subscription
    */
   public async isSubscribed(): Promise<boolean> {
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     if (!this.isPushMessagingAvailable()) {
-      return Promise.reject("Push messaging isn't supported.");
+      return Promise.reject(PUSH_MESSAGING_NOT_SUPPORTED);
     }
     const permission = await this.getPermission();
     const { subscribed } = await this.readAndCheckSubscription();
@@ -294,9 +317,6 @@ export default abstract class BaseSDK implements ISDK {
 
   /**
    * Read the system notification permission.
-   *
-   * Note: this cannot be done during setup() on Safari as it needs the websitePushID to be loaded.
-   * Delay any call requiring this to after start().
    */
   public readPermission(): Promise<Permission> {
     if (window != null && window.Notification != null) {
@@ -309,8 +329,11 @@ export default abstract class BaseSDK implements ISDK {
    * Subscribe if we have the token in database, use it
    */
   public async subscribe(): Promise<boolean> {
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     if (!this.isPushMessagingAvailable()) {
-      return Promise.reject("Push messaging isn't supported.");
+      return Promise.reject(PUSH_MESSAGING_NOT_SUPPORTED);
     }
     const perm = await this.getPermission();
     if (perm === "granted") {
@@ -324,6 +347,10 @@ export default abstract class BaseSDK implements ISDK {
    * We keep the subscription but change the subscribed flag
    */
   public async unsubscribe(): Promise<boolean> {
+    // Module-only guard: unsupported browsers keep their historical behavior.
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     await this.updateSubscribed(false);
     return !(await this.isSubscribed());
   }
@@ -335,7 +362,11 @@ export default abstract class BaseSDK implements ISDK {
    *
    * @return Promise<any>
    */
-  public async getSubscription(): Promise<unknown | null | undefined> {
+  public async getSubscription(): Promise<unknown> {
+    // Module-only guard: unsupported browsers keep their historical behavior.
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     const { subscription } = await this.readAndCheckSubscription();
     return subscription;
   }
@@ -344,8 +375,11 @@ export default abstract class BaseSDK implements ISDK {
    * Returned the subscription state based on the subscribed flag and permissions
    */
   public async getSubscriptionState(): Promise<ISubscriptionState> {
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     if (!this.isPushMessagingAvailable()) {
-      return Promise.reject("Push messaging isn't supported.");
+      return Promise.reject(PUSH_MESSAGING_NOT_SUPPORTED);
     }
     return {
       permission: await this.getPermission(),
@@ -376,24 +410,15 @@ export default abstract class BaseSDK implements ISDK {
   }
 
   public async getUserAttributes(): Promise<{ [key: string]: BatchSDK.IUserAttribute }> {
-    if (this.profileModule) {
-      return this.profileModule.getPublicAttributes();
-    }
-    throw new Error("Internal error (no profile module available)");
+    return this.profileModule.getPublicAttributes();
   }
 
   public async getUserTagCollections(): Promise<{ [key: string]: string[] }> {
-    if (this.profileModule) {
-      return this.profileModule.getPublicTagCollections();
-    }
-    throw new Error("Internal error (no profile module available)");
+    return this.profileModule.getPublicTagCollections();
   }
 
   public async clearInstallationData(): Promise<void> {
-    if (this.profileModule) {
-      return this.profileModule.clearInstallationData();
-    }
-    throw new Error("Internal error (no profile module available)");
+    return this.profileModule.clearInstallationData();
   }
 
   //#endregion
@@ -478,7 +503,7 @@ export default abstract class BaseSDK implements ISDK {
    *
    * Subscribed can be updated in the same API call to avoid sending multiple sync events
    */
-  public async updateSubscription(sub: unknown | null | undefined, subscribed?: boolean): Promise<unknown | null | undefined> {
+  public async updateSubscription(sub: unknown, subscribed?: boolean): Promise<unknown> {
     const parameterStore = await this.getParameterStore();
     if (typeof sub === "undefined" || sub == null) {
       await parameterStore.removeParameterValue(keysByProvider.profile.Subscription);
@@ -524,6 +549,8 @@ export default abstract class BaseSDK implements ISDK {
         // If we sent this, it means that we may have detected a change in "subscribed": save it to ensure consistency
         const p = await this.getParameterStore();
         await p.setParameterValue(keysByProvider.profile.Subscribed, state.subscribed);
+
+        this.lastSubscribed = state.subscribed;
       }
     }
 
@@ -543,9 +570,6 @@ export default abstract class BaseSDK implements ISDK {
     return null;
   }
   public async profile(): Promise<BatchSDK.IProfile> {
-    if (this.profileModule) {
-      return this.profileModule.get();
-    }
-    throw new Error("Internal error (no profile module available)");
+    return this.profileModule.get();
   }
 }

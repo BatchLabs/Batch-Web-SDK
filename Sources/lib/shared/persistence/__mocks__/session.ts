@@ -9,7 +9,7 @@ class InMemory implements IPersistenceProvider<unknown> {
     this.db = {};
   }
 
-  public getData(key: string): Promise<unknown | null> {
+  public getData(key: string): Promise<unknown> {
     return new Promise(resolve => {
       if (key in this.db) {
         resolve(this.db[key]);

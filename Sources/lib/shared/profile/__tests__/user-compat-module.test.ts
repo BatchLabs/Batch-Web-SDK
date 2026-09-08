@@ -1,8 +1,7 @@
-/* eslint-env jest */
-import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, describe, expect, it } from "@jest/globals";
 import EventTracker from "com.batch.shared/event/event-tracker";
 import UUID from "com.batch.shared/helpers/uuid";
-import { LocalEventBus } from "com.batch.shared/local-event-bus";
+import { EventBusListener, LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 import { ProbationManager } from "com.batch.shared/managers/probation-manager";
 import ParameterStore from "com.batch.shared/parameters/parameter-store";
@@ -51,7 +50,7 @@ describe("User Data - Attributes check", () => {
         persistence: IComplexPersistenceProvider,
         webserviceExecutor: IWebserviceExecutor
       ) {
-        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(true, webserviceExecutor));
+        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(webserviceExecutor));
         this.scheduleAttributesCheck = jest.fn();
       }
     }
@@ -78,7 +77,7 @@ describe("User Data - Attributes check", () => {
       probationManager,
       webserviceExecutor,
       new UserDataStorage(persistence),
-      new EventTracker(true, webserviceExecutor)
+      new EventTracker(webserviceExecutor)
     );
 
     await (userModule as any).checkWithServer();
@@ -88,14 +87,16 @@ describe("User Data - Attributes check", () => {
 
   it("schedules a bump when asked", async () => {
     class MockedUserModule extends UserCompatModule {
-      public scheduleBumpVersion: () => void;
+      // The overridden method takes (fromVersion, serverVersion): the mock must
+      // carry that arity, otherwise the call assertion below cannot typecheck.
+      public scheduleBumpVersion: jest.Mock<void, [number, number]>;
 
       public constructor(
         probationManager: ProbationManager,
         persistence: IComplexPersistenceProvider,
         webserviceExecutor: IWebserviceExecutor
       ) {
-        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(true, webserviceExecutor));
+        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(webserviceExecutor));
         this.scheduleBumpVersion = jest.fn();
       }
     }
@@ -115,7 +116,7 @@ describe("User Data - Attributes check", () => {
     await (userModule as any).checkWithServer();
 
     expect(await userDataStorage.getLastCheckTimestamp()).toBeUndefined();
-    expect(userModule.scheduleBumpVersion).toBeCalledWith(2, 4);
+    expect(userModule.scheduleBumpVersion).toHaveBeenCalledWith(2, 4);
   });
 
   it("schedules a resend when asked", async () => {
@@ -127,7 +128,7 @@ describe("User Data - Attributes check", () => {
         persistence: IComplexPersistenceProvider,
         webserviceExecutor: IWebserviceExecutor
       ) {
-        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(true, webserviceExecutor));
+        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(webserviceExecutor));
         this.resendAttributes = jest.fn();
       }
     }
@@ -146,7 +147,7 @@ describe("User Data - Attributes check", () => {
     await (userModule as any).checkWithServer();
 
     expect(await userDataStorage.getLastCheckTimestamp()).toBeUndefined();
-    expect(userModule.resendAttributes).toBeCalled();
+    expect(userModule.resendAttributes).toHaveBeenCalled();
   });
 
   it("can bump version", async () => {
@@ -159,7 +160,7 @@ describe("User Data - Attributes check", () => {
         persistence: IComplexPersistenceProvider,
         webserviceExecutor: IWebserviceExecutor
       ) {
-        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(true, webserviceExecutor));
+        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(webserviceExecutor));
         this.scheduleAttributesSend = jest.fn();
       }
     }
@@ -174,7 +175,7 @@ describe("User Data - Attributes check", () => {
 
     expect(await userDataStorage.getTxid()).toBeUndefined();
     expect(await userDataStorage.getVersion()).toEqual(5);
-    expect(userModule.scheduleAttributesSend).toBeCalled();
+    expect(userModule.scheduleAttributesSend).toHaveBeenCalled();
 
     // Check that atomicity works: a bump request when the previous version isn't the one that the
     // current one should be ignored
@@ -186,7 +187,7 @@ describe("User Data - Attributes check", () => {
     await userDataStorage.persistTxid(UUID());
     expect(await userDataStorage.getTxid()).toBeDefined();
     expect(await userDataStorage.getVersion()).toEqual(5);
-    expect(userModule.scheduleAttributesSend).not.toBeCalled();
+    expect(userModule.scheduleAttributesSend).not.toHaveBeenCalled();
   });
 
   it("can resend attributes", async () => {
@@ -199,7 +200,7 @@ describe("User Data - Attributes check", () => {
         persistence: IComplexPersistenceProvider,
         webserviceExecutor: IWebserviceExecutor
       ) {
-        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(true, webserviceExecutor));
+        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(webserviceExecutor));
         this.scheduleAttributesSend = jest.fn();
       }
     }
@@ -213,12 +214,14 @@ describe("User Data - Attributes check", () => {
     await userModule.resendAttributes();
 
     expect(await userDataStorage.getTxid()).toBeUndefined();
-    expect(userModule.scheduleAttributesSend).toBeCalled();
+    expect(userModule.scheduleAttributesSend).toHaveBeenCalled();
   });
 
   it("test trigger on project changed", async () => {
     class MockedEventCallback {
-      public onProjectChanged: () => void;
+      // Listeners are called with (detail, event) by the bus, which is what the
+      // assertions below check — the mock must carry that arity.
+      public onProjectChanged: jest.Mock<void, Parameters<EventBusListener>>;
       public constructor() {
         this.onProjectChanged = jest.fn();
         LocalEventBus.subscribe(LocalSDKEvent.ProjectChanged, this.onProjectChanged.bind(this));
@@ -230,14 +233,13 @@ describe("User Data - Attributes check", () => {
         persistence: IComplexPersistenceProvider,
         webserviceExecutor: IWebserviceExecutor
       ) {
-        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(true, webserviceExecutor));
+        super(probationManager, webserviceExecutor, new UserDataStorage(persistence), new EventTracker(webserviceExecutor));
       }
     }
 
     const { probationManager, persistence } = await getUserModuleDependencies();
     const webserviceExecutor = new MockWebserviceExecutor<AttributesCheckResponse>({
       action: "OK",
-      // eslint-disable-next-line @typescript-eslint/camelcase
       project_key: "project_testprojectkey1234",
     });
 

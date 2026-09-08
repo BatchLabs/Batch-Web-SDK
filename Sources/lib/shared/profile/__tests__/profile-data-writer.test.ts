@@ -6,17 +6,17 @@ import { IProfileOperation, ProfileDataOperation } from "com.batch.shared/profil
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/user-data");
 
-describe("User data ", () => {
-  it("when params are empty", () => {
+describe("User data", () => {
+  it("when params are empty", async () => {
     const operations: IProfileOperation[] = [];
 
     const userDataWriter = new ProfileDataWriter(false);
     const userData = userDataWriter.applyCustomOperations(operations);
 
-    expect(userData).resolves.toEqual({});
+    await expect(userData).resolves.toEqual({});
   });
 
-  it("when params are empty and source has attribute", () => {
+  it("when params are empty and source has attribute", async () => {
     const operations: IProfileOperation[] = [];
 
     const userDataWriter = new ProfileDataWriter(true, {
@@ -35,7 +35,7 @@ describe("User data ", () => {
     });
     const userData = userDataWriter.applyCustomOperations(operations);
 
-    expect(userData).resolves.toEqual({
+    await expect(userData).resolves.toEqual({
       foo: {
         type: ProfileAttributeType.STRING,
         value: "bar",
@@ -51,7 +51,7 @@ describe("User data ", () => {
     });
   });
 
-  it("properly merges attributes", () => {
+  it("properly merges attributes", async () => {
     const userDataWriter = new ProfileDataWriter(true, {
       foo: {
         type: ProfileAttributeType.STRING,
@@ -87,7 +87,7 @@ describe("User data ", () => {
 
     const userData = userDataWriter.applyCustomOperations(operations);
 
-    expect(userData).resolves.toEqual({
+    await expect(userData).resolves.toEqual({
       foo: { type: ProfileAttributeType.UNKNOWN, value: null },
       hi: {
         type: ProfileAttributeType.STRING,
@@ -106,7 +106,7 @@ describe("User data ", () => {
 });
 
 describe("User data: Attributes", () => {
-  it("should return the transaction when it's ok", () => {
+  it("should return the transaction when it's ok", async () => {
     const operations: IProfileOperation[] = [
       {
         operation: ProfileDataOperation.SetAttribute,
@@ -161,7 +161,7 @@ describe("User data: Attributes", () => {
     const userDataWriter = new ProfileDataWriter(true);
     const userData = userDataWriter.applyCustomOperations(operations);
 
-    expect(userData).resolves.toEqual({
+    await expect(userData).resolves.toEqual({
       age: {
         type: "i",
         value: 23,
@@ -179,7 +179,7 @@ describe("User data: Attributes", () => {
     });
   });
 
-  it("should return throw error when volume limits are exceeded", () => {
+  it("should return throw error when volume limits are exceeded", async () => {
     const operations: IProfileOperation[] = [];
 
     for (let i = 0; i < 51; i++) {
@@ -192,12 +192,12 @@ describe("User data: Attributes", () => {
     }
 
     const userDataWriter = new ProfileDataWriter(true);
-    expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
+    await expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
       new Error(`Custom data cannot hold more than ${Consts.MaxProfileAttributesCount} attributes. Rolling back transaction.`)
     );
   });
 
-  it("should return throw error when array attributes count limits are exceeded", () => {
+  it("should return throw error when array attributes count limits are exceeded", async () => {
     const operations: IProfileOperation[] = [];
 
     for (let i = 0; i < 16; i++) {
@@ -210,12 +210,12 @@ describe("User data: Attributes", () => {
     }
 
     const userDataWriter = new ProfileDataWriter(true);
-    expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
+    await expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
       new Error(`Custom data cannot hold more than ${Consts.MaxProfileArrayAttributesCount} array attributes. Rolling back transaction.`)
     );
   });
 
-  it("should return throw error when volume limits are exceeded on CEP", () => {
+  it("should return throw error when volume limits are exceeded on CEP", async () => {
     const operations: IProfileOperation[] = [];
     const values = [];
     for (let i = 0; i < 26; i++) {
@@ -227,12 +227,12 @@ describe("User data: Attributes", () => {
       value: values,
     });
     const userDataWriter = new ProfileDataWriter(false);
-    expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
+    await expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
       new Error(`An ARRAY attribute cannot hold more than ${Consts.MaxProfileArrayItems} items on CEP. Rolling back transaction.`)
     );
   });
 
-  it("should return throw error when volume limits are exceeded on MEP", () => {
+  it("should return throw error when volume limits are exceeded on MEP", async () => {
     const operations: IProfileOperation[] = [];
     const values = [];
     for (let i = 0; i < 51; i++) {
@@ -244,7 +244,7 @@ describe("User data: Attributes", () => {
       value: values,
     });
     const userDataWriter = new ProfileDataWriter(true);
-    expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
+    await expect(() => userDataWriter.applyCustomOperations(operations)).rejects.toThrow(
       new Error(`An ARRAY attribute cannot hold more than ${Consts.MaxProfileArrayItemsCompat} items on MEP. Rolling back transaction.`)
     );
   });

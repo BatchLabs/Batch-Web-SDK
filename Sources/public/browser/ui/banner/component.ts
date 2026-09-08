@@ -7,6 +7,7 @@ import { IBatchSDK } from "../../public-api";
 import { BasePopinComponent } from "../base-popin-component";
 import { IPopinConfig } from "../popin/component";
 import html from "./content.html";
+
 import style, { IIndexableStyle } from "./style.css";
 
 const LSKEY = "_batch_ui_banner_dismissed";
@@ -104,6 +105,7 @@ export default class Banner extends BasePopinComponent<IBannerConfig> {
     div.id = "batchsdk-ui-banner";
     div.innerHTML = html;
 
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint reads IStyleCss and IIndexableStyle as identical; tsc does not (interface has no implicit index signature), and dropping the assertion fails type-check with TS2345
     updateClassNames(div, style as IIndexableStyle);
 
     this.container = dom(div);
@@ -114,7 +116,7 @@ export default class Banner extends BasePopinComponent<IBannerConfig> {
       fontFamily: this.conf.fontFamily,
       fontSize: this.conf.fontSize ? this.conf.fontSize + "px" : null,
       position: this.conf.fixed ? "fixed" : "absolute",
-      zIndex: String(Number.isInteger(this.conf.zIndex as number) ? (this.conf.zIndex as number) : 16777271),
+      zIndex: String(Number.isInteger(this.conf.zIndex) ? (this.conf.zIndex as number) : 16777271),
     });
     this.container.selectOne(selectors.subscribe).style({
       backgroundColor: this.conf.btnBackgroundColor,

@@ -74,7 +74,7 @@ describe("Profile data editor", () => {
       ]);
     });
 
-    it("it can set, remove and clear attributes", () => {
+    it("can set, remove and clear attributes", () => {
       const editor = new ProfileAttributeEditor(false);
       editor
         .setAttribute("interests", "sports")
@@ -129,9 +129,18 @@ describe("Profile data editor", () => {
         { key: "bio", operation: "REMOVE_FROM_ARRAY", value: ["fruits", "vegetables"] },
       ]);
     });
+
+    it("converts a number carried by an explicitly typed STRING attribute", () => {
+      const editor = new ProfileAttributeEditor(false);
+      editor.setAttribute("nickname", { type: ProfileAttributeType.STRING, value: 42 });
+
+      expect(editor.getOperations()).toEqual([
+        { key: "nickname", operation: "SET_ATTRIBUTE", value: "42", type: ProfileAttributeType.STRING },
+      ]);
+    });
   });
   describe("Native attributes", () => {
-    describe("Email ", () => {
+    describe("Email", () => {
       it("Valid email should not return operations when not logged", () => {
         const editor = new ProfileAttributeEditor(false);
         editor.setEmailAddress("test@batch.com");
@@ -162,7 +171,7 @@ describe("Profile data editor", () => {
       });
     });
 
-    describe("Email Marketing Subscription ", () => {
+    describe("Email Marketing Subscription", () => {
       it("Valid email marketing subscription", () => {
         const editor = new ProfileAttributeEditor(true);
         editor.setEmailMarketingSubscription("subscribed");
@@ -182,7 +191,7 @@ describe("Profile data editor", () => {
       });
     });
 
-    describe("Language ", () => {
+    describe("Language", () => {
       it("Valid language", () => {
         const editor = new ProfileAttributeEditor(true);
         editor.setLanguage("fr");
@@ -214,7 +223,7 @@ describe("Profile data editor", () => {
       });
     });
 
-    describe("Region ", () => {
+    describe("Region", () => {
       it("Valid region", () => {
         const editor = new ProfileAttributeEditor(true);
         editor.setRegion("FR");
@@ -243,7 +252,7 @@ describe("Profile data editor", () => {
         expect(editor.getOperations()).toEqual([]);
       });
     });
-    describe("Topic Preferences ", () => {
+    describe("Topic Preferences", () => {
       it("Valid topic preferences", () => {
         const editor = new ProfileAttributeEditor(true);
         editor.setTopicPreferences(["news", "sports"]);

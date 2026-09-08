@@ -1,4 +1,3 @@
-/* eslint-env jest */
 // @ts-nocheck
 
 jest.mock("com.batch.shared/persistence/profile");
@@ -8,7 +7,6 @@ import WebserviceBase from "com.batch.shared/webservice/base";
 
 import { SDK_API_LVL } from "../config";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const BatchPackage = require("../../package.json");
 
 const wsb = new WebserviceBase();
@@ -25,7 +23,7 @@ test("getHeaders", () => {
   return wsb.getHeaders(store).then(headers => {
     expect(headers).toHaveProperty("cus");
     expect(headers).toHaveProperty("di");
-    expect(headers).toHaveProperty("lvl", `${SDK_API_LVL}`);
+    expect(headers).toHaveProperty("lvl", SDK_API_LVL);
     expect(headers).toHaveProperty("dtz");
     expect(headers).toHaveProperty("da");
     expect(headers).toHaveProperty("dla");

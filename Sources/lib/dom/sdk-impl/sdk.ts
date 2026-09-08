@@ -88,7 +88,7 @@ export interface ISDK {
    * Returns the current subscription associated to this installation.
    * Having a subscription doesn't mean you're subscribed, use the #isSubscribed method for this
    */
-  getSubscription(): Promise<unknown | null | undefined>; // FIXME what do we return ?
+  getSubscription(): Promise<unknown>; // FIXME what do we return ?
 
   /**
    * Returns the subscription state

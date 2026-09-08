@@ -1,6 +1,6 @@
 export interface IParameterStore {
-  getParametersValues(keys: string[]): Promise<{ [key: string]: unknown | null }>;
-  getParameterValue(key: string): Promise<unknown | null>;
+  getParametersValues(keys: string[]): Promise<{ [key: string]: unknown }>;
+  getParameterValue(key: string): Promise<unknown>;
 }
 
 export interface IParameterProvider<T> {

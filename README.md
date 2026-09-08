@@ -4,25 +4,29 @@
 
 The Batch Web SDK allows you to build a meaningful communication experience in your website through highly personalized push notifications.
 
-Our [📕 setup documentation](https://doc.batch.com/web/prerequisites) details the steps to take for an easy and successful integration.
+Our [📕 setup documentation](https://doc.batch.com/developer/sdk/web/getting-started/prerequisites) details the steps to take for an easy and successful integration.
 
 # Prerequisites
 
 Batch is compatible with the following browsers:
 
-- Firefox 53 or higher
-- Chrome 55 or higher
-- Edge 75 or higher
-- Safari 12 or higher
+- Chrome 63 or higher
+- Firefox 57 or higher
+- Edge 79 or higher
+- Safari 16 or higher (macOS Ventura 13.0, or installed PWAs on iOS 16.4)
 
 
 # Documentation
-- [Setup guide](https://doc.batch.com/web/prerequisites): start your implementation here!
+- [Setup guide](https://doc.batch.com/developer/sdk/web/getting-started/prerequisites): start your implementation here!
 - [Help center](https://help.batch.com/en/): answers to most questions you may have during the integration
-- [API reference](https://doc.batch.com/web-api-reference/index.html): this documents each of the classes and methods in the Batch Web SDK
+- [API reference](https://batchlabs.github.io/Batch-Web-SDK/): this documents each of the classes and methods in the Batch Web SDK
 
 You may also find this guide useful to review after integration to make sure you're ready to go live: [How can I test my web push integration?](https://help.batch.com/en/articles/4819177-how-can-i-test-my-web-push-integration)
  
+# Migrating
+
+Upgrading between major versions? See our [Migration Guides](https://doc.batch.com/developer/sdk/web/advanced/4x-migration).
+
 # Building
 
 Build instructions are detailed in [BUILDING.md](BUILDING.md).

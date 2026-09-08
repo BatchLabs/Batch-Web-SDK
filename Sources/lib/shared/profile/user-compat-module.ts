@@ -227,6 +227,8 @@ export class UserCompatModule {
         case ProfileNativeAttributeType.LANGUAGE:
         case ProfileNativeAttributeType.REGION:
           {
+            // Sequential writes are intentional to preserve ordering; do not parallelize.
+            // oxlint-disable-next-line eslint/no-await-in-loop
             const updated = await parameterStore.setOrRemoveParameterValueIfChanged(indexedDBKeyBinder[native.key], definedIdentifier);
             if (updated) {
               nativesChanged = true;

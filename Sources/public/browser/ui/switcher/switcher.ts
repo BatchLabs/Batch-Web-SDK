@@ -1,6 +1,7 @@
 import { ISubscriptionState } from "com.batch.dom/sdk-impl/sdk";
+import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 
-import { BatchSDK } from "../../../types/public-api";
+import type { BatchSDK } from "../../../types/public-api";
 import { IBatchSDK } from "../../public-api";
 import { BatchWindow } from "../sdk";
 import Switcher, { ISwitcherConfig } from "./component";
@@ -12,11 +13,11 @@ const componentName = "switcher";
 window.batchSDK("ui.register", componentName, (api: IBatchSDK, conf: ISwitcherConfig, onDrawnCallback: (component: unknown) => void) => {
   const switcher = new Switcher(api, conf);
 
-  api.on(BatchSDK.SDKEvent.UiReady, (_: never, sub: ISubscriptionState) => {
+  api.on(LocalSDKEvent.UiReady as unknown as BatchSDK.SDKEvent, (_: never, sub: ISubscriptionState) => {
     switcher.draw(sub);
     onDrawnCallback(switcher);
   });
-  api.on(BatchSDK.SDKEvent.SubscriptionChanged, (_: never, sub: ISubscriptionState) => switcher.redraw(sub));
+  api.on(LocalSDKEvent.SubscriptionChanged as unknown as BatchSDK.SDKEvent, (_: never, sub: ISubscriptionState) => switcher.redraw(sub));
 
   return switcher;
 });

@@ -5,6 +5,7 @@ import { BatchSDK } from "../../../public/types/public-api";
 export const isTypedEventAttributeValue = (value: unknown): value is BatchSDK.EventAttributeValue => {
   return (
     typeof value === "object" &&
+    value !== null &&
     !(value instanceof Date) &&
     !(value instanceof URL) &&
     !Array.isArray(value) &&

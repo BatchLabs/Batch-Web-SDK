@@ -48,13 +48,49 @@ export function isValidAttributeKey(key: string): boolean {
 }
 
 /**
- * Helper method to validate a string value
+ * Predicate for the string-attribute contract: non-empty, at most
+ * `Consts.AttributeStringMaxLengthCEP` characters, without the editor warnings.
+ *
+ * Reads `length` without asserting the runtime type: the profile API accepts a
+ * non-string value on an explicitly typed `STRING` attribute — both comparisons
+ * are then false — and the server owns the verdict.
+ */
+export function isProfileStringValueValid(value: string): boolean {
+  const length: number | undefined = value.length;
+  return !(length === 0 || (length !== undefined && length > Consts.AttributeStringMaxLengthCEP));
+}
+
+/**
+ * Predicate for the string-array contract: 1 to `Consts.MaxEventArrayItems`
+ * entries, without the editor warnings. Not a `value is string[]` guard: the
+ * contract tolerates a non-string entry, so it cannot promise the narrowed
+ * type, and reading the entry through `typeof` keeps a `null` entry from
+ * throwing on the landing serialization boundary.
+ */
+export function isProfileStringArrayValueValid(value: unknown): boolean {
+  return (
+    isArray(value) &&
+    value.length > 0 &&
+    value.length <= Consts.MaxEventArrayItems &&
+    value.every(entry => typeof entry !== "string" || isProfileStringValueValid(entry))
+  );
+}
+
+/** Predicate for the URL-attribute contract: non-empty, at most `Consts.AttributeURLMaxLength` characters. */
+export function isProfileURLValueValid(value: URL): boolean {
+  const serialized = URL.prototype.toString.call(value);
+  return serialized.length > 0 && serialized.length <= Consts.AttributeURLMaxLength;
+}
+
+/**
+ * {@link isProfileStringValueValid} for the profile editor: same contract, plus
+ * the warning naming the rejected attribute.
  *
  * @param value The string value to validate
  * @param key The attribute's key'
  */
 export function isValidStringValue(value: string, key?: string): boolean {
-  if (value.length === 0 || value.length > Consts.AttributeStringMaxLengthCEP) {
+  if (!isProfileStringValueValid(value)) {
     Log.warn(
       logModuleName,
       `String attributes can't be empty or longer than ${Consts.AttributeStringMaxLengthCEP}
@@ -66,32 +102,32 @@ export function isValidStringValue(value: string, key?: string): boolean {
 }
 
 /**
- * Helper method to validate an array of string values
+ * {@link isProfileStringArrayValueValid} for the profile editor: same contract,
+ * plus the warning naming the rejected attribute. The branches below only
+ * classify a failure for the message; the rule itself lives in the predicate.
  *
  * @param value The array of string values to validate
  * @param key The attribute's key
  */
 export function isValidStringArrayValue(value: string[], key: string): boolean {
+  if (isProfileStringArrayValueValid(value)) {
+    return true;
+  }
   if (!isArray(value)) {
     Log.warn(logModuleName, `Value must be an array of string. Ignoring attribute ${key}`);
-    return false;
-  }
-  if (value.length === 0 || value.length > Consts.MaxEventArrayItems) {
+  } else if (value.length === 0 || value.length > Consts.MaxEventArrayItems) {
     Log.warn(
       logModuleName,
       `Array of string attributes must not be empty or longer than ${Consts.MaxEventArrayItems}. Ignoring attribute ${key}`
     );
-    return false;
-  }
-  if (!value.every(it => isValidStringValue(it))) {
+  } else {
     Log.warn(
       logModuleName,
       `Array of string attributes must only have values of type String 
         and must respect the string attribute limitations. Ignoring attribute ${key}`
     );
-    return false;
   }
-  return true;
+  return false;
 }
 
 /**

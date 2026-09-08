@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, describe, expect, it } from "@jest/globals";
 import BaseSdk from "com.batch.dom/sdk-impl/sdk-base";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import EventTracker from "com.batch.shared/event/event-tracker";
@@ -29,8 +29,8 @@ class MockedEventTracker extends EventTracker {
   public track: (event: ISerializableEvent) => void;
   public events: ISerializableEvent[] = [];
 
-  public constructor(webserviceExecutor: IWebserviceExecutor) {
-    super(true, webserviceExecutor);
+  public constructor(trackerWebserviceExecutor: IWebserviceExecutor) {
+    super(true, trackerWebserviceExecutor);
     this.track = jest.fn((event: ISerializableEvent) => {
       this.events.push(event);
     });
@@ -389,9 +389,7 @@ describe("Profile Module", () => {
         editor.setAttribute("arr_3", largeArray);
       });
 
-      expect(eventTracker.track).not.toHaveBeenCalledWith(
-        expect.objectContaining({ name: InternalSDKEvent.ProfileDataChanged })
-      );
+      expect(eventTracker.track).not.toHaveBeenCalledWith(expect.objectContaining({ name: InternalSDKEvent.ProfileDataChanged }));
       // No events at all: custom attr operations don't produce compat events
       expect(eventTracker.track).not.toHaveBeenCalled();
     });
@@ -603,9 +601,9 @@ describe("Profile Module", () => {
     });
 
     it("Identify should be a string", async () => {
-      const { profileModule, eventTracker } = await initProfileModule();
+      const { profileModule } = await initProfileModule();
       const profile = await profileModule.get();
-      expect(() => profile.identify({ customId: 3 })).rejects.toThrow(
+      await expect(() => profile.identify({ customId: 3 })).rejects.toThrow(
         new Error("Custom identifier must be a string and can’t be longer than 512 characters.")
       );
     });
@@ -619,7 +617,7 @@ describe("Profile Module", () => {
         "T1qGxSADV2m7JcUhaGLyLB9fATuGNdmf1vmP6d45RFIL3w6AeLBkxX9haQo8adZBJBjgZguhqVkA06xYrh7aDMsiw8d8pVQxKw5l4iIa0LDWOMiv2De3ZZQv" +
         "lGKt7SEXN39MW0kQR7Xu8zsaXp75bTj9iGKWKnSjXBs8js5FfG1RRPrrsricFcg7COrXoMSPAZAjVUBrtXIH4TMzyvjSB3d9q4Yb69LnDuElUB6UTRf60bKbY" +
         "ck8LhglY9q7yLzI2RhjtsZ2rX3OTeG4h00HgHA";
-      expect(() => profile.identify({ customId })).rejects.toThrow(
+      await expect(() => profile.identify({ customId })).rejects.toThrow(
         new Error("Custom identifier must be a string and can’t be longer than 512 characters.")
       );
     });
@@ -628,7 +626,7 @@ describe("Profile Module", () => {
       const { profileModule } = await initProfileModule();
       const profile = await profileModule.get();
       const customId = "undefined";
-      expect(() => profile.identify({ customId })).rejects.toThrow(
+      await expect(() => profile.identify({ customId })).rejects.toThrow(
         new Error(
           "Identify method called with a blocklisted identifier: `undefined`, Please ensure you have correctly implemented the API."
         )

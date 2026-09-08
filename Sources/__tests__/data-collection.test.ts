@@ -1,7 +1,6 @@
-/* eslint-env jest */
 // @ts-nocheck
 
-import { expect, jest } from "@jest/globals";
+import { expect } from "@jest/globals";
 
 import BaseSdk from "../lib/dom/sdk-impl/sdk-base";
 import { fillDefaultDataCollectionConfiguration, serializeDataCollectionConfig } from "../lib/shared/data-collection";

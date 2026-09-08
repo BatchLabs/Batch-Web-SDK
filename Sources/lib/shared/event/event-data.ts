@@ -64,11 +64,14 @@ export class EventData {
   private getLabel(label?: string | null): string | undefined | null {
     if (isString(label)) {
       if (label.length === 0 || label.length > Consts.EventDataLabelMaxLength) {
-        Log.warn(`Label can't be empty or longer than ${Consts.EventDataLabelMaxLength} characters. Ignoring label ${label}.`);
+        Log.warn(
+          logModuleName,
+          `Label can't be empty or longer than ${Consts.EventDataLabelMaxLength} characters. Ignoring label ${label}.`
+        );
         return;
       }
     } else if (label != null && typeof label !== "undefined") {
-      Log.warn(`If supplied, label argument must be a string. Ignoring label ${label}.`);
+      Log.warn(logModuleName, `If supplied, label argument must be a string. Ignoring label ${label}.`);
       return;
     }
     return label;

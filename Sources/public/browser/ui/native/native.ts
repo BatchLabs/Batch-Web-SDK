@@ -1,6 +1,7 @@
 import { ISubscriptionState, Permission } from "com.batch.dom/sdk-impl/sdk";
+import LocalSDKEvent from "com.batch.shared/local-sdk-events";
 
-import { BatchSDK } from "../../../types/public-api";
+import type { BatchSDK } from "../../../types/public-api";
 import { IBatchSDK } from "../../public-api";
 import { BatchWindow } from "../sdk";
 
@@ -38,14 +39,6 @@ class NativeRequest {
   }
 
   public async show(force: boolean = false): Promise<void> {
-    if (window.safari) {
-      // There is no "decide later" on safari, so having a cooldown is not needed
-      // We also should not call Notification.requestPermission() as it shows a different
-      // prompt. So, on Safari, bypass everything and let the SDK deal with it.
-      void this.api.subscribe();
-      return;
-    }
-
     const dismissed = +(window.localStorage.getItem(LSKEY) as string);
     const now = Math.round(new Date().getTime() / 1000);
 
@@ -80,7 +73,7 @@ window.batchSDK(
   (api: IBatchSDK, conf: INativeRequestConfig, onDrawnCallback: (component: unknown) => void) => {
     const native = new NativeRequest(api, conf);
 
-    api.on(BatchSDK.SDKEvent.UiReady, (_: unknown, sub: ISubscriptionState) => {
+    api.on(LocalSDKEvent.UiReady as unknown as BatchSDK.SDKEvent, (_: unknown, sub: ISubscriptionState) => {
       native.draw(sub);
       onDrawnCallback(native);
     });

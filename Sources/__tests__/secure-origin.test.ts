@@ -1,5 +1,3 @@
-/* eslint-env jest */
-
 import isOriginSecure from "com.batch.shared/helpers/secure-origin";
 
 test("correctly detects secure origins", () => {

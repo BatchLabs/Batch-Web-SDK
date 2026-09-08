@@ -1,0 +1,714 @@
+/* Batch Messaging — styles injected into a closed Shadow Root. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:host {
+  /* ── Light defaults ── */
+  --iam-backdrop-color-light: rgba(0, 0, 0, 0.5);
+  --iam-close-button-bg-light: rgba(0, 0, 0, 0.1);
+  --iam-close-button-color-light: #000;
+  --iam-progress-bar-color-light: #007aff;
+
+  /* ── Dark defaults ── */
+  --iam-backdrop-color-dark: rgba(0, 0, 0, 0.75);
+  --iam-close-button-bg-dark: rgba(255, 255, 255, 0.12);
+  --iam-close-button-color-dark: #f3f3f3;
+  --iam-progress-bar-color-dark: #8cb8ff;
+
+  /* ── Active resolved (light by default) ── */
+  --iam-backdrop-color-resolved: var(--iam-backdrop-color-light);
+  --iam-close-button-bg-resolved: var(--iam-close-button-bg-light);
+  --iam-close-button-color-resolved: var(--iam-close-button-color-light);
+  --iam-progress-bar-color-resolved: var(--iam-progress-bar-color-light);
+}
+
+/* Longhand offsets, not `inset`: it lands in Chrome 87 and Firefox 66, above the `.browserslistrc` floor. */
+.iam-backdrop,
+.iam-surface-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--batch-messaging-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  padding: 16px;
+}
+
+.iam-backdrop {
+  background: var(--iam-backdrop-color-resolved);
+}
+
+.iam-surface-layer {
+  pointer-events: none;
+}
+
+.iam-surface-layer--top {
+  align-items: flex-start;
+  padding-top: 0;
+}
+
+.iam-surface-layer--bottom {
+  align-items: flex-end;
+  padding-bottom: 0;
+}
+
+/* ── Modal ── */
+
+.iam-modal {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  border-radius: 12px;
+  margin: var(--iam-root-margin, 0);
+  background: var(--iam-surface-bg-resolved, #fff);
+  border-color: var(--iam-surface-border-color-resolved, transparent);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  animation: iam-slide-up 0.25s ease-out;
+  pointer-events: auto;
+}
+
+@media (max-width: 520px) {
+  .iam-backdrop,
+  .iam-surface-layer {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  /* Re-apply the top anchor after the mobile bottom-alignment rule. */
+  .iam-surface-layer--top {
+    align-items: flex-start;
+  }
+
+  .iam-modal {
+    max-width: 100%;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: 80vh;
+  }
+}
+
+/* ── Fullscreen ── */
+
+/* Longhand offsets, as on `.iam-backdrop`: a dropped `inset` would collapse
+   the surface to its content size instead of filling the host. */
+.iam-fullscreen {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  background: var(--iam-surface-bg-resolved, #fff);
+  border-color: var(--iam-surface-border-color-resolved, transparent);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--batch-messaging-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Root container ── */
+
+.iam-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  font-family: var(--batch-messaging-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* No background here: the host below paints it, and a second paint would double a translucent color. */
+.iam-root--surface {
+  --iam-surface-bg-resolved: var(--iam-surface-bg, #fff);
+  --iam-surface-border-color-resolved: var(--iam-surface-border-color, transparent);
+  margin: var(--iam-root-margin, 0);
+  border-color: var(--iam-surface-border-color-resolved, transparent);
+}
+
+/* Only the landing host paints the payload background; the in-app overlay host has no class and stays transparent. */
+:host(.batch-lp-surface) {
+  --iam-host-bg-resolved: var(--iam-surface-bg, #fff);
+  background: var(--iam-host-bg-resolved);
+}
+
+/* Symmetric padding caps the content column. Physical longhands and no `max()`: both land above the `.browserslistrc` floor. */
+.iam-root--capped {
+  padding-left: calc((100% - var(--iam-content-max-width)) / 2);
+  padding-right: calc((100% - var(--iam-content-max-width)) / 2);
+}
+
+.iam-modal,
+.iam-fullscreen {
+  --iam-surface-bg-resolved: var(--iam-surface-bg, #fff);
+  --iam-surface-border-color-resolved: var(--iam-surface-border-color, transparent);
+}
+
+/* ── Close button — theming lives here; only structural styles are inline ── */
+
+.iam-close {
+  --iam-close-bg-resolved: var(--iam-close-bg, var(--iam-close-button-bg-resolved));
+  --iam-close-color-resolved: var(--iam-close-color, var(--iam-close-button-color-resolved));
+  background-color: var(--iam-close-bg-resolved);
+  color: var(--iam-close-color-resolved);
+}
+
+.iam-close:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+
+/* ── Responsive box/typography props (base = mobile-first) ──
+   Components set --x and --x-desktop as an always-set pair. */
+
+.iam-text,
+.iam-button,
+.iam-image,
+.iam-divider,
+.iam-columns,
+.iam-field {
+  margin: var(--iam-margin, 0);
+}
+
+.iam-button,
+.iam-input,
+.iam-columns {
+  padding: var(--iam-padding, 0);
+}
+
+.iam-text,
+.iam-button-label {
+  font-size: var(--iam-font-size, inherit);
+}
+
+/* ── Button — font reset + display only, all other styles are inline ── */
+
+.iam-button {
+  --iam-bg-resolved: var(--iam-bg, transparent);
+  --iam-color-resolved: var(--iam-color, inherit);
+  --iam-border-color-resolved: var(--iam-border-color, transparent);
+  font-family: inherit;
+  display: block;
+  /* `position` anchors the hover overlay; `z-index: 0` scopes the label layer to the button. */
+  position: relative;
+  z-index: 0;
+  background-color: var(--iam-bg-resolved, transparent);
+  color: var(--iam-color-resolved, inherit);
+  border-color: var(--iam-border-color-resolved, transparent);
+}
+
+/* ── Hover — a black overlay, never `opacity` ──
+   `opacity` would composite the whole button, washing out a light one. */
+.iam-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.iam-button:hover::after {
+  opacity: 1;
+}
+
+.iam-button:disabled::after {
+  opacity: 0;
+}
+
+/* `::after` follows the label in tree order, so the label needs a position and a z-index to stay on top. */
+.iam-button-label {
+  position: relative;
+  z-index: 1;
+}
+
+.iam-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.iam-text {
+  --iam-color-resolved: var(--iam-color, inherit);
+  color: var(--iam-color-resolved, inherit);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ── Column layout — payload-driven background ── */
+
+.iam-columns {
+  --iam-bg-resolved: var(--iam-bg, transparent);
+  background-color: var(--iam-bg-resolved, transparent);
+}
+
+.iam-divider {
+  --iam-border-color-resolved: var(--iam-border-color, transparent);
+  border-top-color: var(--iam-border-color-resolved, transparent);
+}
+
+/* ── Form fields ──
+   Structure and layout only; the components set the colors as CSS variables. */
+
+.iam-field {
+  --iam-error-resolved: var(--iam-error, #d70015);
+  display: flex;
+  flex-direction: column;
+}
+
+.iam-field-label {
+  --iam-label-color-resolved: var(--iam-label-color, inherit);
+  font-size: var(--iam-label-font-size, 14px);
+  margin-bottom: 4px;
+  color: var(--iam-label-color-resolved, inherit);
+}
+
+/* Physical `margin-left`: `margin-inline-start` lands above the `.browserslistrc` floor. */
+.iam-field-label-required {
+  margin-left: 0.25em;
+  color: inherit;
+}
+
+/* Visually hidden. The hidden label keeps its `for`/`id` link and the status
+   region is spoken only; the decoy is also `aria-hidden` and out of the tab order. */
+.iam-field-label--hidden,
+.iam-form-status,
+.iam-decoy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.iam-input {
+  --iam-bg-resolved: var(--iam-bg, transparent);
+  --iam-color-resolved: var(--iam-color, inherit);
+  --iam-border-color-resolved: var(--iam-border-color, transparent);
+  --iam-focus-veil-resolved: var(--iam-focus-veil, transparent);
+  --iam-placeholder-color-resolved: var(--iam-placeholder-color);
+  --iam-input-font-size-resolved: var(--iam-input-font-size, 16px);
+  font-family: inherit;
+  font-size: var(--iam-input-font-size-resolved, 16px);
+  width: 100%;
+  border-style: solid;
+  background-color: var(--iam-bg-resolved, transparent);
+  color: var(--iam-color-resolved, inherit);
+  border-color: var(--iam-border-color-resolved, transparent);
+}
+
+/* Without an explicit placeholder color, it inherits the text color at a reduced opacity. */
+.iam-input::placeholder {
+  color: var(--iam-placeholder-color-resolved, var(--iam-color-resolved, inherit));
+  opacity: var(--iam-placeholder-opacity, 0.6);
+}
+
+/* 16px floor on touch devices: a smaller field triggers the iOS Safari autozoom. */
+@media (pointer: coarse) {
+  .iam-input {
+    font-size: max(16px, var(--iam-input-font-size-resolved, 16px));
+  }
+}
+
+/* One stroke: the veil comes first because the first shadow of the list paints on top. */
+.iam-input--focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--iam-focus-veil-resolved), 0 0 0 1px var(--iam-border-color-resolved);
+}
+
+.iam-input--error {
+  border-color: var(--iam-error-resolved);
+}
+
+.iam-input--error.iam-input--focus-ring:focus {
+  box-shadow: 0 0 0 1px var(--iam-focus-veil-resolved), 0 0 0 1px var(--iam-error-resolved);
+}
+
+/* Forced colors drop every `box-shadow`, so hand the focus indicator back as an `outline` here. */
+@media (forced-colors: active) {
+  .iam-input--focus-ring:focus {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+}
+
+.iam-field-error {
+  margin: 0;
+  max-height: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--iam-error-resolved);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease, transform 0.2s ease;
+}
+
+.iam-field-error--visible {
+  margin-top: 4px;
+  max-height: 3em;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.iam-field-shake {
+  animation: iam-field-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.iam-form-message {
+  --iam-form-message-resolved: var(--iam-form-message, currentColor);
+  margin: 0;
+  max-height: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--iam-form-message-resolved);
+  opacity: 0;
+  transform: translateY(2px);
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin-bottom 0.25s ease, transform 0.2s ease;
+}
+
+.iam-form-message--error {
+  --iam-form-message-resolved: var(--iam-form-message, #d70015);
+}
+
+.iam-form-message--success {
+  --iam-form-message-resolved: var(--iam-form-message, #1e8e3e);
+}
+
+.iam-form-message--visible {
+  margin-bottom: 4px;
+  max-height: 6em;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Soften the fields and the other CTAs; the submit button stays crisp because it carries the spinner. */
+.iam-form--submitting .iam-field,
+.iam-form--submitting .iam-button:not(.iam-button--submit) {
+  opacity: 0.7;
+}
+
+.iam-form--completed .iam-field,
+.iam-form--completed .iam-button {
+  pointer-events: none;
+}
+
+.iam-form--completed .iam-field,
+.iam-form--completed .iam-button:not(.iam-button--submit) {
+  opacity: 0.6;
+}
+
+/* ── Submit button status ──
+   `opacity` hides the label without losing the button size or its accessible name. */
+.iam-button-spinner,
+.iam-button-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  z-index: 1;
+  display: none;
+  pointer-events: none;
+}
+
+.iam-button-spinner {
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: iam-spin 0.8s linear infinite;
+}
+
+.iam-form--submitting .iam-button--submit .iam-button-label,
+.iam-form--completed .iam-button--submit .iam-button-label {
+  opacity: 0;
+}
+
+.iam-form--submitting .iam-button--submit .iam-button-spinner {
+  display: block;
+}
+
+.iam-form--completed .iam-button--submit .iam-button-check {
+  display: block;
+}
+
+.iam-progress {
+  --iam-progress-color-resolved: var(--iam-progress-color, var(--iam-progress-bar-color-resolved));
+  background-color: var(--iam-progress-color-resolved);
+}
+
+/* KEEP IN SYNC with the forced-dark `:host([data-batch-messaging-theme="dark"])` block below. */
+@media (prefers-color-scheme: dark) {
+  :host(:not([data-batch-messaging-theme])),
+  :host([data-batch-messaging-theme="auto"]) {
+    --iam-backdrop-color-resolved: var(--iam-backdrop-color-dark);
+    --iam-close-button-bg-resolved: var(--iam-close-button-bg-dark);
+    --iam-close-button-color-resolved: var(--iam-close-button-color-dark);
+    --iam-progress-bar-color-resolved: var(--iam-progress-bar-color-dark);
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-modal,
+  :host(:not([data-batch-messaging-theme])) .iam-fullscreen,
+  :host(:not([data-batch-messaging-theme])) .iam-root--surface,
+  :host([data-batch-messaging-theme="auto"]) .iam-modal,
+  :host([data-batch-messaging-theme="auto"]) .iam-fullscreen,
+  :host([data-batch-messaging-theme="auto"]) .iam-root--surface {
+    --iam-surface-bg-resolved: var(--iam-surface-bg-dark, var(--iam-surface-bg, #fff));
+    --iam-surface-border-color-resolved: var(--iam-surface-border-color-dark, var(--iam-surface-border-color, transparent));
+  }
+
+  :host(.batch-lp-surface:not([data-batch-messaging-theme])),
+  :host(.batch-lp-surface[data-batch-messaging-theme="auto"]) {
+    --iam-host-bg-resolved: var(--iam-surface-bg-dark, var(--iam-surface-bg, #fff));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-button,
+  :host([data-batch-messaging-theme="auto"]) .iam-button,
+  :host(:not([data-batch-messaging-theme])) .iam-input,
+  :host([data-batch-messaging-theme="auto"]) .iam-input {
+    --iam-bg-resolved: var(--iam-bg-dark, var(--iam-bg, transparent));
+    --iam-color-resolved: var(--iam-color-dark, var(--iam-color, inherit));
+    --iam-border-color-resolved: var(--iam-border-color-dark, var(--iam-border-color, transparent));
+    --iam-focus-veil-resolved: var(--iam-focus-veil-dark, var(--iam-focus-veil, transparent));
+    --iam-placeholder-color-resolved: var(--iam-placeholder-color-dark, var(--iam-placeholder-color));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-columns,
+  :host([data-batch-messaging-theme="auto"]) .iam-columns {
+    --iam-bg-resolved: var(--iam-bg-dark, var(--iam-bg, transparent));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-form-message--error,
+  :host([data-batch-messaging-theme="auto"]) .iam-form-message--error {
+    --iam-form-message-resolved: var(--iam-form-message-dark, var(--iam-form-message, #ff6961));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-form-message--success,
+  :host([data-batch-messaging-theme="auto"]) .iam-form-message--success {
+    --iam-form-message-resolved: var(--iam-form-message-dark, var(--iam-form-message, #30d158));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-text,
+  :host([data-batch-messaging-theme="auto"]) .iam-text {
+    --iam-color-resolved: var(--iam-color-dark, var(--iam-color, inherit));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-field-label,
+  :host([data-batch-messaging-theme="auto"]) .iam-field-label {
+    --iam-label-color-resolved: var(--iam-label-color-dark, var(--iam-label-color, inherit));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-field,
+  :host([data-batch-messaging-theme="auto"]) .iam-field {
+    --iam-error-resolved: var(--iam-error-dark, var(--iam-error, #ff6961));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-divider,
+  :host([data-batch-messaging-theme="auto"]) .iam-divider {
+    --iam-border-color-resolved: var(--iam-border-color-dark, var(--iam-border-color, transparent));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-close,
+  :host([data-batch-messaging-theme="auto"]) .iam-close {
+    --iam-close-bg-resolved: var(--iam-close-bg-dark, var(--iam-close-bg, var(--iam-close-button-bg-resolved)));
+    --iam-close-color-resolved: var(--iam-close-color-dark, var(--iam-close-color, var(--iam-close-button-color-resolved)));
+  }
+
+  :host(:not([data-batch-messaging-theme])) .iam-progress,
+  :host([data-batch-messaging-theme="auto"]) .iam-progress {
+    --iam-progress-color-resolved: var(--iam-progress-color-dark, var(--iam-progress-color, var(--iam-progress-bar-color-resolved)));
+  }
+}
+
+/* No forced-light block: with `theme="light"` no dark selector matches, so the default `:host` rules apply. */
+
+/* KEEP IN SYNC with the @media (prefers-color-scheme: dark) block above; this one applies whatever the system prefers. */
+:host([data-batch-messaging-theme="dark"]) {
+  --iam-backdrop-color-resolved: var(--iam-backdrop-color-dark);
+  --iam-close-button-bg-resolved: var(--iam-close-button-bg-dark);
+  --iam-close-button-color-resolved: var(--iam-close-button-color-dark);
+  --iam-progress-bar-color-resolved: var(--iam-progress-bar-color-dark);
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-modal,
+:host([data-batch-messaging-theme="dark"]) .iam-fullscreen,
+:host([data-batch-messaging-theme="dark"]) .iam-root--surface {
+  --iam-surface-bg-resolved: var(--iam-surface-bg-dark, var(--iam-surface-bg, #fff));
+  --iam-surface-border-color-resolved: var(--iam-surface-border-color-dark, var(--iam-surface-border-color, transparent));
+}
+
+:host(.batch-lp-surface[data-batch-messaging-theme="dark"]) {
+  --iam-host-bg-resolved: var(--iam-surface-bg-dark, var(--iam-surface-bg, #fff));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-button,
+:host([data-batch-messaging-theme="dark"]) .iam-input {
+  --iam-bg-resolved: var(--iam-bg-dark, var(--iam-bg, transparent));
+  --iam-color-resolved: var(--iam-color-dark, var(--iam-color, inherit));
+  --iam-border-color-resolved: var(--iam-border-color-dark, var(--iam-border-color, transparent));
+  --iam-focus-veil-resolved: var(--iam-focus-veil-dark, var(--iam-focus-veil, transparent));
+  --iam-placeholder-color-resolved: var(--iam-placeholder-color-dark, var(--iam-placeholder-color));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-text {
+  --iam-color-resolved: var(--iam-color-dark, var(--iam-color, inherit));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-field-label {
+  --iam-label-color-resolved: var(--iam-label-color-dark, var(--iam-label-color, inherit));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-field {
+  --iam-error-resolved: var(--iam-error-dark, var(--iam-error, #ff6961));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-columns {
+  --iam-bg-resolved: var(--iam-bg-dark, var(--iam-bg, transparent));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-form-message--error {
+  --iam-form-message-resolved: var(--iam-form-message-dark, var(--iam-form-message, #ff6961));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-form-message--success {
+  --iam-form-message-resolved: var(--iam-form-message-dark, var(--iam-form-message, #30d158));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-divider {
+  --iam-border-color-resolved: var(--iam-border-color-dark, var(--iam-border-color, transparent));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-close {
+  --iam-close-bg-resolved: var(--iam-close-bg-dark, var(--iam-close-bg, var(--iam-close-button-bg-resolved)));
+  --iam-close-color-resolved: var(--iam-close-color-dark, var(--iam-close-color, var(--iam-close-button-color-resolved)));
+}
+
+:host([data-batch-messaging-theme="dark"]) .iam-progress {
+  --iam-progress-color-resolved: var(--iam-progress-color-dark, var(--iam-progress-color, var(--iam-progress-bar-color-resolved)));
+}
+
+/* ── Responsive breakpoint: base = mobile, desktop >= 450px ──
+   Placed after the base rules so the equal-specificity override wins by order. */
+
+@media (min-width: 450px) {
+  .iam-text,
+  .iam-button,
+  .iam-image,
+  .iam-divider,
+  .iam-columns,
+  .iam-field {
+    margin: var(--iam-margin-desktop, var(--iam-margin, 0));
+  }
+
+  .iam-button,
+  .iam-input,
+  .iam-columns {
+    padding: var(--iam-padding-desktop, var(--iam-padding, 0));
+  }
+
+  .iam-text,
+  .iam-button-label {
+    font-size: var(--iam-font-size-desktop, var(--iam-font-size, inherit));
+  }
+
+  .iam-field-label {
+    font-size: var(--iam-label-font-size-desktop, var(--iam-label-font-size, 14px));
+  }
+
+  .iam-input {
+    --iam-input-font-size-resolved: var(--iam-input-font-size-desktop, var(--iam-input-font-size, 16px));
+  }
+
+  .iam-modal,
+  .iam-root--surface {
+    margin: var(--iam-root-margin-desktop, var(--iam-root-margin, 0));
+  }
+
+  /* Some components set display inline, such as the button and the line clamp.
+     !important is required here. */
+  .iam-hide-desktop {
+    display: none !important;
+  }
+}
+
+@media (max-width: 449.98px) {
+  .iam-hide-mobile {
+    display: none !important;
+  }
+}
+
+/* ── Animations ── */
+
+@keyframes iam-progress-countdown {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@keyframes iam-slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes iam-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes iam-field-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* Reduced motion: every keyframe ends on the resting state, so dropping the motion lands on the final frame. */
+@media (prefers-reduced-motion: reduce) {
+  .iam-button::after,
+  .iam-field-error,
+  .iam-form-message {
+    transition: none;
+  }
+
+  .iam-field-shake,
+  .iam-modal {
+    animation: none;
+  }
+
+  /* `!important`: the component drives the countdown through inline animation longhands. */
+  .iam-progress {
+    animation: none !important;
+  }
+
+  /* WCAG 2.2.2: the frozen ring plus `aria-busy` keep the "in progress" signal without the rotation. */
+  .iam-button-spinner {
+    animation: none;
+    transform: rotate(45deg);
+  }
+}

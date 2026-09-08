@@ -1,5 +1,3 @@
-/* eslint-env jest */
-
 import { UserAttributeType } from "../lib/shared/profile/user-data-types";
 
 jest.mock("com.batch.shared/persistence/profile");
@@ -21,7 +19,6 @@ beforeEach(async () => {
   sdk = new TestSDK();
   await sdk.setup({
     apiKey: "DEV12345",
-    subdomain: "webpush",
     authKey: "1.test",
     vapidPublicKey: "BDSVNxldVbaALdoOMMp3eBOmZBC9saw6lNP5H1zF5E2eFe2hD_Ooqdzw4BleKK3cRtbP5483XzpGw4QfEqe4mBM",
   } as any);

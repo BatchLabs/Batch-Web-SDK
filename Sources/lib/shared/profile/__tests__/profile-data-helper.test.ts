@@ -1,7 +1,11 @@
 import { Consts } from "com.batch.shared/constants/user";
+import { Log } from "com.batch.shared/logger";
 import {
   addToArray,
   deduplicateKeepLast,
+  isProfileStringArrayValueValid,
+  isProfileStringValueValid,
+  isProfileURLValueValid,
   isValidAttributeKey,
   isValidStringArrayValue,
   isValidStringValue,
@@ -46,6 +50,58 @@ describe("profile data helper", () => {
     });
   });
 
+  describe("isProfileStringValueValid", () => {
+    it("accepts a value from 1 to the maximum length", () => {
+      expect(isProfileStringValueValid("a")).toBe(true);
+      expect(isProfileStringValueValid("a".repeat(Consts.AttributeStringMaxLengthCEP))).toBe(true);
+    });
+
+    it("rejects an empty value or one over the maximum length", () => {
+      expect(isProfileStringValueValid("")).toBe(false);
+      expect(isProfileStringValueValid("a".repeat(Consts.AttributeStringMaxLengthCEP + 1))).toBe(false);
+    });
+  });
+
+  describe("isProfileStringArrayValueValid", () => {
+    it("accepts 1 to the maximum number of valid entries", () => {
+      expect(isProfileStringArrayValueValid(["a"])).toBe(true);
+      expect(isProfileStringArrayValueValid(Array.from({ length: Consts.MaxEventArrayItems }, (_, i) => `v${i}`))).toBe(true);
+    });
+
+    it("rejects a non-array, an empty array or one over the maximum size", () => {
+      expect(isProfileStringArrayValueValid("nope")).toBe(false);
+      expect(isProfileStringArrayValueValid([])).toBe(false);
+      expect(isProfileStringArrayValueValid(Array.from({ length: Consts.MaxEventArrayItems + 1 }, (_, i) => `v${i}`))).toBe(false);
+    });
+
+    it("rejects an array holding an invalid string entry", () => {
+      expect(isProfileStringArrayValueValid(["ok", ""])).toBe(false);
+      expect(isProfileStringArrayValueValid(["ok", "a".repeat(Consts.AttributeStringMaxLengthCEP + 1)])).toBe(false);
+    });
+
+    it("tolerates a non-string entry, exactly like the profile API", () => {
+      expect(isProfileStringArrayValueValid(["ok", 42])).toBe(true);
+      expect(isProfileStringArrayValueValid([42])).toBe(true);
+      expect(isProfileStringArrayValueValid(["ok", null])).toBe(true);
+    });
+  });
+
+  describe("isProfileURLValueValid", () => {
+    it("accepts a serialized URL up to the maximum length", () => {
+      expect(isProfileURLValueValid(new URL("https://batch.com"))).toBe(true);
+      const base = "https://batch.com/";
+      const exactMax = new URL(base + "a".repeat(Consts.AttributeURLMaxLength - base.length));
+      expect(URL.prototype.toString.call(exactMax)).toHaveLength(Consts.AttributeURLMaxLength);
+      expect(isProfileURLValueValid(exactMax)).toBe(true);
+    });
+
+    it("rejects a serialized URL over the maximum length", () => {
+      const base = "https://batch.com/";
+      const overMax = new URL(base + "a".repeat(Consts.AttributeURLMaxLength - base.length + 1));
+      expect(isProfileURLValueValid(overMax)).toBe(false);
+    });
+  });
+
   describe("isValidStringValue", () => {
     it("accepts valid strings", () => {
       expect(isValidStringValue("hello")).toBe(true);
@@ -55,6 +111,10 @@ describe("profile data helper", () => {
       expect(isValidStringValue("")).toBe(false);
       expect(isValidStringValue("a".repeat(Consts.AttributeStringMaxLengthCEP + 1))).toBe(false);
     });
+
+    it("keeps accepting a non-string value, as the public API always did", () => {
+      expect(isValidStringValue(42 as unknown as string)).toBe(true);
+    });
   });
 
   describe("isValidStringArrayValue", () => {
@@ -63,7 +123,7 @@ describe("profile data helper", () => {
     });
 
     it("rejects invalid arrays", () => {
-      expect(isValidStringArrayValue([] as unknown as string[], "tags")).toBe(false);
+      expect(isValidStringArrayValue([], "tags")).toBe(false);
       expect(
         isValidStringArrayValue(
           Array.from({ length: Consts.MaxEventArrayItems + 1 }, (_, i) => `v${i}`),
@@ -72,6 +132,28 @@ describe("profile data helper", () => {
       ).toBe(false);
       expect(isValidStringArrayValue([""], "tags")).toBe(false);
       expect(isValidStringArrayValue("nope" as unknown as string[], "tags")).toBe(false);
+    });
+
+    it("keeps accepting an array holding a non-string entry, as the public API always did", () => {
+      expect(isValidStringArrayValue(["ok", 42] as unknown as string[], "tags")).toBe(true);
+      expect(isProfileStringArrayValueValid(["ok", 42])).toBe(true);
+      expect(isValidStringArrayValue(["ok", null] as unknown as string[], "tags")).toBe(true);
+    });
+
+    it("names the rejection in the warning", () => {
+      const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+      try {
+        isValidStringArrayValue("nope" as unknown as string[], "tags");
+        isValidStringArrayValue([], "tags");
+        isValidStringArrayValue([""], "tags");
+        const messages = warn.mock.calls.map(call => String(call[1]));
+        expect(messages[0]).toContain("must be an array of string");
+        expect(messages[1]).toContain("must not be empty or longer than");
+        expect(messages[2]).toContain("must only have values of type String");
+        expect(messages.every(message => message.includes("tags"))).toBe(true);
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 
@@ -82,9 +164,7 @@ describe("profile data helper", () => {
 
     it("rejects invalid topics", () => {
       expect(() => validateAndNormalizeTopic("")).toThrow("TopicPreference value can't be empty or longer than 300 characters.");
-      expect(() => validateAndNormalizeTopic("foo-bar")).toThrow(
-        "TopicPreference value must respect the following pattern: ^[a-z0-9_]+$."
-      );
+      expect(() => validateAndNormalizeTopic("foo-bar")).toThrow("TopicPreference value must respect the following pattern: ^[a-z0-9_]+$.");
       expect(() => validateAndNormalizeTopic("foo!")).toThrow("TopicPreference value must respect the following pattern: ^[a-z0-9_]+$.");
       expect(() => validateAndNormalizeTopic("a".repeat(Consts.TopicPreferenceMaxLength + 1))).toThrow(
         "TopicPreference value can't be empty or longer than 300 characters."
@@ -109,11 +189,13 @@ describe("profile data helper", () => {
     });
 
     it("rejects invalid arrays", () => {
-      expect(() => validateAndNormalizeTopicPreferences([])).toThrow();
-      expect(() => validateAndNormalizeTopicPreferences("nope" as unknown as string[])).toThrow();
+      expect(() => validateAndNormalizeTopicPreferences([])).toThrow("TopicPreferences must not be empty or longer than");
+      expect(() => validateAndNormalizeTopicPreferences("nope" as unknown as string[])).toThrow(
+        "TopicPreferences must be an array of string."
+      );
       expect(() =>
         validateAndNormalizeTopicPreferences(Array.from({ length: Consts.MaxTopicPreferenceItems + 1 }, (_, i) => `t${i}`))
-      ).toThrow();
+      ).toThrow("TopicPreferences must not be empty or longer than");
     });
   });
 
@@ -125,9 +207,9 @@ describe("profile data helper", () => {
 
     it("validates set sizes", () => {
       expect(validateUpdatedTopicPreferences(new Set(["a", "b"]))).toBe(true);
-      expect(
-        validateUpdatedTopicPreferences(new Set(Array.from({ length: Consts.MaxTopicPreferenceItems + 1 }, (_, i) => `t${i}`)))
-      ).toBe(false);
+      expect(validateUpdatedTopicPreferences(new Set(Array.from({ length: Consts.MaxTopicPreferenceItems + 1 }, (_, i) => `t${i}`)))).toBe(
+        false
+      );
     });
 
     it("validates partial update objects", () => {

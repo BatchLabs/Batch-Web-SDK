@@ -1,6 +1,6 @@
 interface ITask {
-  runnable: () => unknown | PromiseLike<unknown>;
-  resolve: (value: unknown | PromiseLike<unknown>) => void;
+  runnable: () => unknown;
+  resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
 }
 

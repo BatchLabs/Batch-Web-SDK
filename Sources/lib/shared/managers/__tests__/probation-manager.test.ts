@@ -1,6 +1,5 @@
-/* eslint-env jest */
 // @ts-nocheck
-import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, describe, expect, it } from "@jest/globals";
 import { Permission } from "com.batch.dom/sdk-impl/sdk";
 import { Delay } from "com.batch.shared/helpers/timed-promise";
 import { LocalEventBus } from "com.batch.shared/local-event-bus";

@@ -18,6 +18,7 @@ export const Consts = {
   MaxProfileArrayAttributesCount: 15,
   EmailAddressMaxLength: 128,
   EmailAddressRegexp: /^[^@]+@[A-z0-9\-.]+\.[A-z0-9]+$/,
+  PhoneNumberRegexp: /^\+\d{1,15}$/,
   TopicPreferenceMaxLength: 300,
   MaxTopicPreferenceItems: 25,
   TopicPreferenceRegexp: /^[a-z0-9_]+$/,

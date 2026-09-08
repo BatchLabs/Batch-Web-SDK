@@ -129,7 +129,7 @@ export class Payload {
         action.args = typeof a.args === "object" ? a.args : {};
         return action;
       })
-      .filter(a => a != null) as Action[];
+      .filter(a => a != null);
   }
 
   public getSendID(): string | undefined | null {

@@ -1,8 +1,7 @@
-/* eslint-env browser */
-
 import { Log, LogLevel } from "com.batch.shared/logger";
 
 import { IS_DEV } from "../../config";
+import { autoDetectLandingPage } from "./landing-page/landing-page-loader";
 import NewPublicAPI from "./public-api";
 import { BatchWindow } from "./ui/sdk";
 
@@ -14,9 +13,12 @@ if (IS_DEV) {
   Log.disableModule("local-bus");
 }
 
-const logModuleName = "boostrap";
+const logModuleName = "bootstrap";
 
 (function main(w: BatchWindow): void {
+  // The definition marker alone opts a page in to landing pages; detect it outside of any setup.
+  autoDetectLandingPage();
+
   // create the api
   const api = NewPublicAPI();
 
@@ -78,22 +80,24 @@ const logModuleName = "boostrap";
         Log.warn(logModuleName, "No message name given");
       } else {
         const message = mArgs[0];
-        let msg = message;
-        // Erase the SDK type as we want to dynamically call a method
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let who = api as any;
         mArgs = mArgs.slice(1);
 
-        // handle ui messages
-        if (msg.startsWith("ui.")) {
-          msg = msg.substring(3);
-          who = api.ui;
+        // Resolve the dotted path one own property at a time, so "constructor.assign" never resolves.
+        const path = message.split(".");
+        const name = path.pop() ?? "";
+        let target: object | undefined = api;
+        for (const segment of path) {
+          const next: unknown =
+            target !== undefined && Object.prototype.hasOwnProperty.call(target, segment) ? Reflect.get(target, segment) : undefined;
+          target = typeof next === "object" && next !== null ? next : undefined;
         }
+        const member: unknown =
+          target !== undefined && Object.prototype.hasOwnProperty.call(target, name) ? Reflect.get(target, name) : undefined;
 
-        if (!who[msg]) {
+        if (typeof member !== "function") {
           Log.warn(logModuleName, "Unknown message", message);
         } else {
-          result = who[msg].apply(api, mArgs);
+          result = (member as (...args: unknown[]) => unknown).apply(target, mArgs);
         }
       }
     }
@@ -110,7 +114,7 @@ const logModuleName = "boostrap";
   // Use this batchsdk as any since it's actually the placeholder which holds a call queue
   // There's a typescript trick to expose "q" but it's too troublesome for just one line
   // As we'll instantly remove this
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const queue = (w.batchSDK && (w.batchSDK as any).q) || [];
   if (Array.isArray(queue)) {
     w.batchSDK = (...args: unknown[]) => queue.push(args);

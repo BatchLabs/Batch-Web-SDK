@@ -2,7 +2,7 @@
 // It probably was https://github.com/substack/node-deep-equal
 
 // This file will use "any" as it's highly dynamic
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 
 /**
  * Determines whether the given value is null or undefined

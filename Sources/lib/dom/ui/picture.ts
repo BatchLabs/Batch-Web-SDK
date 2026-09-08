@@ -33,7 +33,7 @@ export function makePictureElementContents(basePath: string, enableWebp: boolean
   elements.push(makeSourceElement(makeSrcset(basePath, "png", enableRetina)));
 
   const imgFallback = document.createElement("img");
-  imgFallback.src = basePath + "." + "png";
+  imgFallback.src = basePath + ".png";
   elements.push(imgFallback);
   return elements;
 }

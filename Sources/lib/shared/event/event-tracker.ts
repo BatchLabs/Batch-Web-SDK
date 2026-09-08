@@ -14,7 +14,7 @@ const FORBIDDEN_LOG_COOLDOWN = 10000; // 10s
 export default class EventTracker {
   // The buffer's job will be to hold the events while the webservice executor sends them
   private buffer: ISerializableEvent[];
-  //  ensures that only one event tracker WS runs at a time
+  // Ensures only one debounced event tracker WS runs at a time; a forced flush bypasses it.
   private attemptRunning: boolean;
   private webserviceExecutor: IWebserviceExecutor;
   private debounceDelay = 200;
@@ -22,13 +22,10 @@ export default class EventTracker {
   private debounceSend: number;
   // Last timestamp we logged a 401 error details, to avoid spamming
   private lastForbiddenLog: number;
-  // Development mode?
-  private dev: boolean;
 
   private limit: number = 30;
 
-  public constructor(dev: boolean, webserviceExecutor: IWebserviceExecutor) {
-    this.dev = dev;
+  public constructor(webserviceExecutor: IWebserviceExecutor) {
     this.buffer = [];
     this.webserviceExecutor = webserviceExecutor;
     this.attemptRunning = false;
@@ -40,7 +37,7 @@ export default class EventTracker {
 
     if (
       event.name === InternalSDKEvent.InstallNativeDataChanged &&
-      this.buffer.some(event => event.name === InternalSDKEvent.InstallNativeDataChanged)
+      this.buffer.some(bufferedEvent => bufferedEvent.name === InternalSDKEvent.InstallNativeDataChanged)
     ) {
       Log.debug("Event Tracker", "Event InstallNativeDataChanged is already buffered, skipping");
       return;
@@ -56,8 +53,20 @@ export default class EventTracker {
     }, this.debounceDelay);
   }
 
-  private send(retryCount: number = 0): boolean {
-    if ((retryCount === 0 && this.attemptRunning) || this.buffer.length === 0) {
+  /** Sends the buffered events at once, skipping the debounce window. */
+  public flush(): void {
+    if (this.debounceSend) {
+      clearTimeout(this.debounceSend);
+      this.debounceSend = 0;
+    }
+    let sent: boolean;
+    do {
+      sent = this.send(0, true);
+    } while (sent);
+  }
+
+  private send(retryCount: number = 0, force: boolean = false): boolean {
+    if ((retryCount === 0 && !force && this.attemptRunning) || this.buffer.length === 0) {
       return false;
     }
 
@@ -111,11 +120,6 @@ export default class EventTracker {
   private logForbiddenError(): void {
     this.lastForbiddenLog = Date.now();
     Log.publicError("Error: Could not authenticate against Batch's servers");
-    let log = "Is your configuration 'apiKey'/'authKey' pair correct?";
-    if (this.dev) {
-      log +=
-        " In development mode, you also need to add the current origin to 'allowed dev origins' in the dashboard under 'Push Settings'";
-    }
-    Log.publicError(log);
+    Log.publicError("Is your configuration 'apiKey'/'authKey' pair correct?");
   }
 }

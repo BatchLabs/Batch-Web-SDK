@@ -5,8 +5,9 @@ import updateClassNames from "com.batch.dom/ui/style";
 import { IBatchSDK } from "../../public-api";
 import { BasePopinComponent } from "../base-popin-component";
 import { IPopinConfig } from "../popin/component";
-import popinStyle from "../popin/style.css";
 import html from "./content.html";
+
+import popinStyle from "../popin/style.css";
 import style, { IIndexableStyle } from "./style.css";
 
 const selectors = {
@@ -77,6 +78,7 @@ export default class Button extends BasePopinComponent<IButtonConfig> {
     const div = document.createElement("div");
     div.className = style["b-container"];
     div.innerHTML = html;
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint reads IStyleCss and IIndexableStyle as identical; tsc does not (interface has no implicit index signature), and dropping the assertion fails type-check with TS2345
     updateClassNames(div, style as IIndexableStyle);
 
     this.container = dom(div);
@@ -84,7 +86,7 @@ export default class Button extends BasePopinComponent<IButtonConfig> {
     this.container.addClass(this.isTop ? style.top : style.bottom);
     this.container.addClass(this.isLeft ? style.left : style.right);
 
-    if (Number.isInteger(this.conf.zIndex as number)) {
+    if (Number.isInteger(this.conf.zIndex)) {
       this.container.style({ zIndex: String(this.conf.zIndex) });
     }
 

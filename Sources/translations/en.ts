@@ -7,8 +7,8 @@ const shared = {
   chrome2: "On the Notifications permission, click on Allow",
   firefox1: "Click on the bubble button to the left of the address bar",
   firefox2: 'Click on the cross [x] next to "Blocked"',
-  safari1: "Click on Safari > Preferences in the top menu",
-  safari2: "In Notifications, choose Allow for this website",
+  safari1: "Open Safari > Settings, then select the Websites tab",
+  safari2: "Under Notifications, set this website to Allow",
 };
 
 export const translations = {

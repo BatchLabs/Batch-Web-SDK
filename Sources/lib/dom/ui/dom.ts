@@ -61,7 +61,7 @@ export class DOMElement {
    * Filter svg elements
    */
   public filterSVG(): SVGElement[] {
-    return this.wrapped.filter((e => e instanceof SVGElement) as (e: Element) => e is SVGElement);
+    return this.wrapped.filter(e => e instanceof SVGElement);
   }
 
   // ----------------------------------->
@@ -225,7 +225,7 @@ export class DOMElement {
     if (content !== null) {
       this.filterHTML()
         .filter(e => e instanceof HTMLAnchorElement)
-        .forEach(e => ((e as HTMLAnchorElement).href = content));
+        .forEach(e => (e.href = content));
     }
     return this;
   }
@@ -270,7 +270,7 @@ export class DOMElement {
   public style(st: IDOMElementStyle): DOMElement {
     this.filterHTML().forEach(e => {
       // Cast to any as it's too annoying to try to extract valid CSS keys to make this type safe
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       Object.keys(st).forEach(k => ((e.style as any)[k] = st[k]));
     });
     return this;
@@ -294,7 +294,7 @@ export class DOMElement {
   public styleSVG(st: { [key: string]: unknown }): DOMElement {
     this.filterSVG().forEach(e => {
       // Cast to any as it's too annoying to try to extract valid CSS keys to make this type safe
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       Object.keys(st).forEach(k => ((e.style as any)[k] = st[k]));
     });
     return this;

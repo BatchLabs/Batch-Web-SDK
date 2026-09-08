@@ -7,8 +7,8 @@ const shared = {
   chrome2: 'Klicken Sie bei der Berechtigung "Benachrichtigungen" auf Zulassen',
   firefox1: "Klicken Sie auf die Schaltfläche mit der Sprechblase links neben der Adressleiste",
   firefox2: 'Klicken Sie auf das Kreuz [x] neben "Gesperrt"',
-  safari1: "Klicken Sie im oberen Menü auf Safari > Einstellungen",
-  safari2: "Wählen Sie unter Benachrichtigungen die Option Für diese Website zulassen",
+  safari1: "Öffnen Sie Safari > Einstellungen und dann den Tab „Websites“",
+  safari2: "Setzen Sie diese Website unter „Mitteilungen“ auf „Erlauben“",
 };
 
 export const translations = {

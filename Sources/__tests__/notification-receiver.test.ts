@@ -1,5 +1,3 @@
-/* eslint-env jest */
-
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/session");
 
@@ -21,7 +19,6 @@ test("returns an instance with the config if found in db", async () => {
     await storage
   ).setData(ProfileKeys.LastConfiguration, {
     apiKey: "bonjour",
-    subdomain: "bonjour",
     authKey: "bonjour",
   });
   const nr = await NotificationReceiver.getInstance(ParameterStore.getInstance());

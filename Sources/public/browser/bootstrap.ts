@@ -2,6 +2,7 @@
 import { Browser, Platform, UserAgent } from "com.batch.shared/helpers/user-agent";
 
 import { IS_WEBPACK_DEV_SERVER, SDK_VERSION, SSL_SCRIPT_URL } from "../../config";
+import { assertBaselineCapabilities, isNativePromise } from "./baseline-capabilities";
 interface IBootstrapOptions {
   unsafe_allowNonNativePromises?: boolean | null;
 }
@@ -31,24 +32,15 @@ const setupBatchSDK = (): void => {
   const safeConsole = typeof console === "object" && console !== null ? Object.assign(dummyConsole, console) : dummyConsole;
 
   // Yes, we're using any to avoid adding a lot of boilerplate in bootstrap, which should be small
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   let bootstrapOptions: IBootstrapOptions = (window as any)["batchSDKBootstrapOptions"];
   if (typeof bootstrapOptions !== "object" || bootstrapOptions === null) {
     bootstrapOptions = {};
   }
 
-  if (!self.fetch) {
-    safeConsole.error("[Batch] 'fetch' is missing on self, refusing to load.");
-    return;
-  }
+  const allowNonNativePromises = bootstrapOptions["unsafe_allowNonNativePromises"] === true;
 
-  if (typeof Promise === "undefined") {
-    safeConsole.error("[Batch] Promises aren't available, refusing to load.");
-    return;
-  }
-
-  if (!URL || URL.prototype.toString.call(new URL("https://batch.com")) !== "https://batch.com/") {
-    safeConsole.error("[Batch] URL is unreliable, refusing to load.");
+  if (!assertBaselineCapabilities(safeConsole.error, { allowNonNativePromises })) {
     return;
   }
 
@@ -65,15 +57,8 @@ const setupBatchSDK = (): void => {
     safeConsole.log("[Batch] Enabling SDK without Notification support.");
   }
 
-  if (Promise.toString().indexOf("[native code]") === -1) {
-    const baseWarning = "[Batch] Using non-standard Promises";
-
-    if (bootstrapOptions["unsafe_allowNonNativePromises"] === true) {
-      console.debug(baseWarning + ".");
-    } else {
-      console.error(baseWarning + ", refusing to load.");
-      return;
-    }
+  if (allowNonNativePromises && !isNativePromise()) {
+    console.debug("[Batch] Using non-standard Promises.");
   }
 
   if (IS_WEBPACK_DEV_SERVER) {

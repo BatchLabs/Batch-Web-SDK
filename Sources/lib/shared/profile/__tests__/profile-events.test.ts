@@ -1,5 +1,4 @@
 // @ts-nocheck
-/* eslint-disable @typescript-eslint/camelcase */
 
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
 import { ProfileAttributeType, ProfileCustomDataAttributes, ProfileNativeDataAttribute } from "com.batch.shared/profile/profile-data-types";

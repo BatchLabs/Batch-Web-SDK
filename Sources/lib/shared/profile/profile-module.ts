@@ -24,7 +24,7 @@ import { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Profile";
 
-const BLOCKLISTED_CUSTOM_USER_IDS = [
+const BLOCKLISTED_CUSTOM_USER_IDS = new Set([
   "undefined",
   "null",
   "nil",
@@ -35,7 +35,7 @@ const BLOCKLISTED_CUSTOM_USER_IDS = [
   "nan",
   "infinity",
   "-infinity",
-];
+]);
 
 export class ProfileModule implements BatchSDK.IProfile {
   /**
@@ -214,7 +214,7 @@ export class ProfileModule implements BatchSDK.IProfile {
     if (identifier && identifier.customId && (!isString(identifier.customId) || identifier.customId.length >= 512)) {
       return Promise.reject(new Error("Custom identifier must be a string and can’t be longer than 512 characters."));
     }
-    if (identifier && identifier.customId && BLOCKLISTED_CUSTOM_USER_IDS.includes(identifier.customId.toLowerCase())) {
+    if (identifier && identifier.customId && BLOCKLISTED_CUSTOM_USER_IDS.has(identifier.customId.toLowerCase())) {
       return Promise.reject(
         new Error(
           "Identify method called with a blocklisted identifier: `" +
@@ -294,7 +294,7 @@ export class ProfileModule implements BatchSDK.IProfile {
    * @param identifier customer's id
    * @private
    */
-  private async handleCustomIdChanged(identifier?: string | null | undefined): Promise<string | null> {
+  private async handleCustomIdChanged(identifier?: string | null): Promise<string | null> {
     const definedIdentifier = typeof identifier === "undefined" ? null : identifier;
     const parameterStore = await this.getParameterStore();
     const idChanged = await parameterStore.setOrRemoveParameterValueIfChanged(keysByProvider.profile.CustomIdentifier, definedIdentifier);

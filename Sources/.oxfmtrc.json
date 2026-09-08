@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "trailingComma": "es5",
+  "printWidth": 140,
+  "arrowParens": "avoid",
+  "sortPackageJson": false,
+  // Import order is now the formatter's job, not a review comment.
+  "sortImports": true,
+  // The format scripts pass no path, so this list selects the tree. CSS and HTML
+  // are excluded because the render code embeds them verbatim (raw CSS strings,
+  // html-loader templates); demo/ and __serving__/static/ are fixture pages the
+  // sample generator rewrites by marker; the api-surface snapshot is rewritten by
+  // `check-api-surface --update` in its own format. oxfmt also formats YAML and
+  // JSONC, so CI and editor configuration is excluded: those files are read as
+  // diffs by humans and are not source.
+  "ignorePatterns": [
+    ".github/",
+    ".vscode/",
+    ".devcontainer/",
+    "*.css.d.ts",
+    "*.html",
+    "*.css",
+    "*.md",
+    "scripts/api-surface.snapshot.json",
+    "build/",
+    "build-e2e/",
+    "build-samples/",
+    "web-api-reference/",
+    "demo/static/",
+    "demo-staging/",
+    "tests-e2e/__serving__/static/",
+    "debug-extension/",
+    "public_repo_skeleton/",
+    "resources/",
+    ".claude/",
+    ".yarn/"
+  ]
+}

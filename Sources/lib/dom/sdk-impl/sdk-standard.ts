@@ -5,8 +5,7 @@ import { Log } from "com.batch.shared/logger";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
 
 import { ISDK } from "./sdk";
-import BaseSDK from "./sdk-base";
-import { ISDKFactory } from "./sdk-factory";
+import BaseSDK, { PUSH_MESSAGING_DISABLED } from "./sdk-base";
 
 const logModuleName = "sdk-standard";
 const defaultTimeout = 10; // default service worker timeout in seconds
@@ -19,6 +18,8 @@ export class StandardSDK extends BaseSDK implements ISDK {
   protected pubKey?: Uint8Array;
   protected worker: ServiceWorker | null;
   protected pushManager?: PushManager;
+  // Shared promise used to coalesce concurrent subscribe() calls (see subscribe()).
+  private inFlightSubscribe?: Promise<boolean>;
 
   // ----------------------------------->
 
@@ -31,6 +32,12 @@ export class StandardSDK extends BaseSDK implements ISDK {
     await super.setup(sdkConfig);
     if (window == null) {
       throw new Error("not in a browser page. is it a service worker?");
+    }
+
+    // Push disabled: skip service worker / VAPID setup, no `vapidPublicKey` needed.
+    if (!this.pushEnabled) {
+      Log.debug(logModuleName, "Push module disabled: skipping service worker and VAPID setup.");
+      return this;
     }
 
     // check if service worker is supported
@@ -142,12 +149,16 @@ export class StandardSDK extends BaseSDK implements ISDK {
   }
 
   protected isPushMessagingAvailable(): boolean {
-    return "PushManager" in window;
+    return this.pushEnabled && "PushManager" in window;
   }
 
   //#region Public API
 
   public async refreshServiceWorkerRegistration(): Promise<void> {
+    // No worker is registered when push is disabled; keep refresh a no-op too.
+    if (!this.pushEnabled) {
+      return Promise.resolve();
+    }
     this.worker = null;
     this.pushManager = undefined;
     return this.initServiceWorker(this.config);
@@ -179,11 +190,18 @@ export class StandardSDK extends BaseSDK implements ISDK {
       return true;
     }
 
+    return this.subscriptionMatchesCurrentKey(subscription);
+  }
+
+  // True if the existing subscription's key matches Batch's; a missing key counts as a match.
+  private subscriptionMatchesCurrentKey(subscription: PushSubscription): boolean {
+    if (!this.pubKey) {
+      return true;
+    }
     const currentKey = subscription.options.applicationServerKey;
     if (!currentKey) {
       return true;
     }
-
     return compareUint8Array(this.pubKey, new Uint8Array(currentKey));
   }
 
@@ -196,14 +214,41 @@ export class StandardSDK extends BaseSDK implements ISDK {
    * FIXME if we have a database error ????
    */
   public async subscribe(): Promise<boolean> {
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
+    // Coalesce concurrent calls so a duplicated caller can't mint two endpoints for one install.
+    const inFlight = this.inFlightSubscribe;
+    if (inFlight) {
+      Log.info(logModuleName, "subscribe() already in progress, reusing the in-flight call");
+      return inFlight;
+    }
+    const subscribePromise = this.doSubscribe();
+    this.inFlightSubscribe = subscribePromise;
+    try {
+      return await subscribePromise;
+    } finally {
+      this.inFlightSubscribe = undefined;
+    }
+  }
+
+  private async doSubscribe(): Promise<boolean> {
     const pm = await this.getPushManager();
     let sub: PushSubscription | null;
     try {
-      // Anything changed in subscribe should also be changed in worker.ts
-      sub = await pm.subscribe({
-        applicationServerKey: this.pubKey,
-        userVisibleOnly: true,
-      });
+      sub = await pm.getSubscription();
+      // A stale subscription (different key, e.g. after a VAPID rotation) isn't replaced by subscribe(): drop it first.
+      if (sub && !this.subscriptionMatchesCurrentKey(sub)) {
+        await sub.unsubscribe();
+        sub = null;
+      }
+      // Reuse a matching subscription, otherwise mint a new one (options also mirrored in worker.ts).
+      if (!sub) {
+        sub = await pm.subscribe({
+          applicationServerKey: this.pubKey as BufferSource,
+          userVisibleOnly: true,
+        });
+      }
     } catch (e) {
       Log.warn(logModuleName, "subscription failed", e);
       sub = null;
@@ -219,6 +264,9 @@ export class StandardSDK extends BaseSDK implements ISDK {
    * We don't unsubscribe the token, keep it for further use
    */
   public async unsubscribe(): Promise<boolean> {
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     const pm = await this.getPushManager();
     let sub: PushSubscription | null;
     try {
@@ -238,10 +286,13 @@ export class StandardSDK extends BaseSDK implements ISDK {
    * - get the subscription
    *
    */
-  public async getSubscription(): Promise<unknown | null | undefined> {
+  public async getSubscription(): Promise<unknown> {
+    if (!this.pushEnabled) {
+      return Promise.reject(PUSH_MESSAGING_DISABLED);
+    }
     if (window?.Notification?.permission !== "granted") {
       // use the subscription in database
-      return super.getSubscription() as Promise<PushSubscriptionJSON>;
+      return super.getSubscription();
     }
 
     // then check we have a subscription
@@ -259,43 +310,3 @@ export class StandardSDK extends BaseSDK implements ISDK {
 }
 
 //#endregion
-
-/**
- * Factory to provide a unique instance of an Standard sdk
- */
-class StandardSDKFactory implements ISDKFactory {
-  private instance?: Promise<ISDK> | null;
-
-  public constructor() {
-    this.instance = null;
-  }
-
-  public setup(config: IPrivateBatchSDKConfiguration): Promise<ISDK> {
-    /**
-     * Init the instance if first time
-     */
-    if (this.instance == null) {
-      // keep a copy of this config
-      // avoid the conf to be modified later
-      const sdkConfig = Object.assign({}, config);
-
-      Log.info(logModuleName, "Instantiating a new SDK");
-      const sdk: ISDK = new StandardSDK();
-      this.instance = sdk.setup(sdkConfig).then(() => sdk);
-    } else {
-      // just show a warn
-      Log.warn(logModuleName, "Config cannot be set again once the SDK has already been started");
-    }
-
-    return this.instance || Promise.reject("Setup failed");
-  }
-
-  public getInstance(): Promise<ISDK> {
-    return this.instance || Promise.reject("You must setup the SDK before using it");
-  }
-}
-
-/**
- * Export a singleton of this factory
- */
-export default new StandardSDKFactory();

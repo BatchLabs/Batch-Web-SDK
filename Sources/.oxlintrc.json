@@ -1,0 +1,143 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Sole linter for the project (oxc.rs). Type-aware rules run via `--type-aware`
+  // (oxlint-tsgolint); the lint scripts pass that flag.
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "plugins": ["typescript", "import", "unicorn", "oxc"],
+  "env": {
+    "browser": true,
+    "worker": true,
+    "es2021": true
+  },
+  "rules": {
+    "no-console": "off",
+    // `varsIgnorePattern` covers the destructuring-rest discard idiom
+    // (`const { ed: _ed, ...rest } = payload`), which is how this codebase drops a key
+    // without mutating the object afterwards.
+    "eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrors": "none" }],
+    // Codebase convention deliberately uses leading-underscore member names; never enforced before.
+    "eslint/no-underscore-dangle": "off",
+    // `onX` handler assignments (IndexedDB requests, DOM elements) are intentional single-handler usage.
+    "unicorn/prefer-add-event-listener": "off",
+    // False positive on ServiceWorker Client.postMessage / worker messaging, which take no targetOrigin.
+    "unicorn/require-post-message-target-origin": "off",
+    // `export {}` in ambient .d.ts files is an intentional module marker, not an empty specifier to remove.
+    "unicorn/require-module-specifiers": "off",
+    // Single-realm SDK; `instanceof` against built-ins is intentional and realm-safety is not a concern here.
+    "unicorn/no-instanceof-builtins": "off",
+    // Perf-only, single bounded occurrence (capped at MaxEventAttributesCount); off to keep the immutable spread untouched.
+    "oxc/no-accumulating-spread": "off",
+    // `Error(msg, { cause })` needs the ES2022 Error lib; the project type-checks against es2020 to honor the browser floor, so `cause` cannot be used.
+    "eslint/preserve-caught-error": "off",
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-inferrable-types": ["error", { "ignoreParameters": true, "ignoreProperties": true }],
+    "typescript/explicit-member-accessibility": "error",
+    "typescript/explicit-function-return-type": ["warn", { "allowExpressions": true }],
+    // Type-aware (requires --type-aware / oxlint-tsgolint). Kept at warn to match the previous ESLint severity.
+    "typescript/no-floating-promises": "warn",
+    // The other type-aware rules are auto-enabled by --type-aware but were not part of the
+    // previous ESLint policy; kept off to keep this migration behaviour-equivalent. Opt in later to harden.
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/consistent-return": "off",
+    "typescript/no-unsafe-enum-comparison": "off",
+    "typescript/no-unnecessary-type-assertion": "error",
+    // Off by design, not by inertia: the public API is called from plain JS, so a
+    // runtime value can violate its declared type. `convertValueProfileAttribute`
+    // relies on that (a STRING attribute given the number 42 must reach the payload
+    // as "42"), and both rules read those defensive conversions as redundant because
+    // they trust the declaration.
+    "typescript/no-unnecessary-type-conversion": "off",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/restrict-template-expressions": "off",
+    "typescript/unbound-method": "off",
+    "typescript/no-duplicate-type-constituents": "error",
+    "typescript/no-base-to-string": "off",
+    // uuid.ts pre-allocates a fixed-length array that is fully populated right after: intentional, not a sparse-array footgun.
+    "unicorn/no-new-array": "off"
+  },
+  "overrides": [
+    {
+      // Test files were never linted before; the jest plugin is scoped to them so
+      // its rules never fire on shipping code.
+      "files": ["**/*.test.ts", "**/*.test.mjs", "**/__tests__/**", "**/__mocks__/**", "**/test-utils/**", "jest.setup.js"],
+      "plugins": ["jest"],
+      "env": { "jest": true },
+      "rules": {
+        // Test doubles and payload fixtures are deliberately untyped: a mock cast to the
+        // real interface would assert a shape the test does not exercise.
+        "typescript/no-explicit-any": "off",
+        // Jest awaits a returned promise and fails the test on rejection, so an
+        // unhandled rejection cannot escape a test body the way it can in the SDK.
+        // `node --test` does the same for the generator's golden tests.
+        "typescript/no-floating-promises": "off",
+        // A helper colocated with the single test that uses it is the readable form,
+        // even when it captures nothing from the enclosing describe.
+        "unicorn/consistent-function-scoping": "off",
+        // Tests import modules for their registration side effects (bootstrap paths,
+        // module re-evaluation under jest.isolateModules).
+        "import/no-unassigned-import": "off",
+        // Return types on inline test helpers and arrow assertions add no information.
+        "typescript/explicit-function-return-type": "off",
+        // The matrix suites deliberately export their prop table so a sibling suite can
+        // build the exhaustiveness alias from `typeof`. The rule targets accidental
+        // exports; honouring it here would mean either moving 450 lines of table into a
+        // non-test module that then imports a `.test.ts` back (the only test -> src
+        // inversion in the repo), or splitting the two tables apart.
+        "jest/no-export": "off",
+        // Assertions live in shared table-driven helpers, not inline in the test body.
+        "jest/expect-expect": ["error", { "assertFunctionNames": ["expect", "testAllUserAgents", "runComponentMatrix"] }]
+      }
+    },
+    {
+      // Build, test and demo tooling runs on Node, not in a browser or a worker.
+      "files": [
+        "scripts/**",
+        "tests-e2e/**",
+        "demo/**",
+        "*.config.js",
+        "*.config.mjs",
+        "*.config.ts",
+        "jest.setup.js",
+        "webpack.hosts.config.js"
+      ],
+      "env": { "node": true },
+      "rules": {
+        // Tooling drives one process, one server or one browser at a time on purpose:
+        // the sequential await is the measurement, not an oversight.
+        "eslint/no-await-in-loop": "off",
+        // The e2e helpers cross into the page context (`window`, `page.evaluate`
+        // payloads), where the SDK types do not apply.
+        "typescript/no-explicit-any": "off",
+        "typescript/explicit-function-return-type": "off"
+      }
+    }
+  ],
+  // The lint scripts pass no path: this list plus .gitignore select the tree.
+  "ignorePatterns": [
+    "**/*.html",
+    "**/*.json",
+    "**/*.css",
+    "**/*.md",
+    "**/*.css.d.ts",
+    "node_modules/**",
+    ".yarn/**",
+    "build/**",
+    "build-e2e/**",
+    "build-samples/**",
+    "web-api-reference/**",
+    "demo/static/**",
+    // Browser fixtures served to the test page, not toolchain code: the snippet
+    // loader is a verbatim copy of the public one.
+    "tests-e2e/__serving__/static/**",
+    "demo-staging/**",
+    "debug-extension/**",
+    "public_repo_skeleton/**",
+    "playwright-report/**",
+    "test-results/**",
+    ".claude/**"
+  ]
+}

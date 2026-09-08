@@ -11,7 +11,7 @@ class ProfileParameterProvider implements IParameterProvider<unknown> {
     this.storage = storageProvider;
   }
 
-  public async getParameterForKey(key: ProfileKeys): Promise<unknown | null> {
+  public async getParameterForKey(key: ProfileKeys): Promise<unknown> {
     if (allowedKeyByProvider.profile.indexOf(key) !== -1) {
       const value = await this.storage.getData(key);
       if (typeof value === "undefined") {
@@ -24,7 +24,7 @@ class ProfileParameterProvider implements IParameterProvider<unknown> {
 
   public setParameterForKey<T>(key: string, value: NonNullable<T>): Promise<T> {
     if (allowedKeyByProvider.profile.indexOf(key) !== -1) {
-      return this.storage.setData(key, value as unknown) as Promise<T>;
+      return this.storage.setData(key, value) as Promise<T>;
     }
     return Promise.reject(new BatchError(`Cannot set ${key}: it is not a managed profile key`));
   }

@@ -15,7 +15,7 @@ export default function uuid(): string {
     const prngRandomBytes = new Uint8Array(randomNumbers.length);
     self.crypto.getRandomValues(prngRandomBytes);
     for (let i = 0; i < randomNumbers.length; i += 1) {
-      randomNumbers[i] = prngRandomBytes[i] % 16 | 0;
+      randomNumbers[i] = (prngRandomBytes[i] % 16) | 0;
     }
   } else {
     for (let i = 0; i < randomNumbers.length; i += 1) {

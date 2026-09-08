@@ -1,5 +1,4 @@
-/* eslint-env jest */
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 
 import { compareUint8Array } from "../array-compare";
 

@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "pretty": true,
     "noEmit": true,
     "sourceMap": true,
@@ -11,14 +13,22 @@
     "noImplicitThis": true,
     "noUnusedParameters": true,
     "alwaysStrict": true,
+    "strictPropertyInitialization": false,
+    "strictFunctionTypes": false,
+    "useUnknownInCatchVariables": false,
     "esModuleInterop": true,
-    "lib": ["es2015"],
-    "baseUrl": "src",
+    "lib": ["es2020"],
+    // Declared explicitly: the automatic @types resolution does not reach the
+    // root node_modules from the nested project configs, so editors — and the
+    // type-check below — open the colocated `__tests__` files without the Jest
+    // globals. `node` stays listed because specifying `types` at all turns the
+    // automatic resolution off, and the build configs rely on the Node types.
+    "types": ["jest", "node"],
     "paths": {
-      "com.batch.dom/*": ["lib/dom/*"],
-      "com.batch.shared/*": ["lib/shared/*"],
-      "com.batch.translations/*": ["translations/*"],
-      "com.batch.worker/*": ["lib/worker/*"]
+      "com.batch.dom/*": ["./src/lib/dom/*"],
+      "com.batch.shared/*": ["./src/lib/shared/*"],
+      "com.batch.translations/*": ["./src/translations/*"],
+      "com.batch.worker/*": ["./src/lib/worker/*"]
     }
   }
 }

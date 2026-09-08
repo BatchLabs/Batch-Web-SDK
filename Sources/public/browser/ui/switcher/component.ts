@@ -6,6 +6,7 @@ import { Delay } from "com.batch.shared/helpers/timed-promise";
 import { IBatchSDK } from "../../public-api";
 import { BasePopinComponent } from "../base-popin-component";
 import html from "./content.html";
+
 import style, { IIndexableStyle } from "./style.css";
 
 const selectors = {
@@ -39,6 +40,7 @@ export default class Switcher extends BasePopinComponent<ISwitcherConfig> {
     div.className = style["b-switch"];
     div.innerHTML = html;
 
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint reads IStyleCss and IIndexableStyle as identical; tsc does not (interface has no implicit index signature), and dropping the assertion fails type-check with TS2345
     updateClassNames(div, style as IIndexableStyle);
     this.container = dom(div);
 

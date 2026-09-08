@@ -16,7 +16,7 @@ export default class Event implements ISerializableEvent {
   // Additional data
   public params: unknown;
 
-  public constructor(name: InternalSDKEvent, params?: unknown | undefined) {
+  public constructor(name: InternalSDKEvent, params?: unknown) {
     if (typeof name !== "string") {
       throw new Error("Error while constructing Event: 'name' is required and should be a string");
     }

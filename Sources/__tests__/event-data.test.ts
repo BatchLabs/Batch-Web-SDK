@@ -1,8 +1,9 @@
 import { EventData } from "../lib/shared/event/event-data";
 import { TypedEventAttributeType } from "../lib/shared/event/event-types";
+import { Log } from "../lib/shared/logger";
 
 describe("Event Data to internal representation", () => {
-  it("when params are empty, empty tags and attributes should be returned, not tags ", () => {
+  it("when params are empty, empty tags and attributes should be returned, not tags", () => {
     const eventData = new EventData({});
 
     expect(eventData).toEqual({
@@ -163,6 +164,20 @@ describe("Event Data: Attributes", () => {
     expect(attributes).toEqual({});
   });
 
+  it("should drop an array holding a null item with a warning, not an internal error", () => {
+    const error = jest.spyOn(Log, "error").mockImplementation(() => undefined);
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+
+    const { attributes } = new EventData({ attributes: { topics: [null, "a"] } as never });
+
+    expect(attributes).toEqual({});
+    expect(warn).toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+
+    error.mockRestore();
+    warn.mockRestore();
+  });
+
   it("should return the key of the attribute in lowercase", () => {
     const { attributes } = new EventData({
       attributes: {
@@ -190,7 +205,7 @@ describe("Event Data: Attributes", () => {
           value: "value",
         },
         keyInError: "alongstring".repeat(30),
-      absurdity: {
+        absurdity: {
           type: TypedEventAttributeType.STRING,
           value: new Date(),
         },

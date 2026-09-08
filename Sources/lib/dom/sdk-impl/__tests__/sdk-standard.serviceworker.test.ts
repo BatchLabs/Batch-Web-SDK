@@ -1,5 +1,4 @@
-/* eslint-env jest */
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "@jest/globals";
 import { urlBase64ToUint8Array } from "com.batch.shared/helpers/push-helper";
 import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
 
@@ -46,7 +45,7 @@ it("uses an existing service worker when asked", async () => {
   await sdk["initServiceWorker"](batchConfig);
   sdk["config"] = batchConfig;
 
-  expect(navigator.serviceWorker.register).not.toBeCalled();
+  expect(navigator.serviceWorker.register).not.toHaveBeenCalled();
   expect(sdk["worker"]).toBe(mockSWInstance.active);
   expect(sdk["pushManager"]).toBe(mockSWInstance.pushManager);
 });
@@ -60,7 +59,7 @@ it("refreshes the internal service worker state using the public API", async () 
 
   const batchConfig = {
     useExistingServiceWorker: true,
-  } as IPrivateBatchSDKConfiguration;
+  } as unknown as IPrivateBatchSDKConfiguration;
 
   const sdk = new StandardSDK();
   await sdk["initServiceWorker"](batchConfig);
@@ -82,11 +81,13 @@ describe("doesExistingSubscriptionKeyMatchCurrent tests", () => {
   const testApplicationServerKeys = {
     1: {
       b64: "BGxd5hznRisNgjcaGVNofH26rYjS_biZjTUll746hItadgeZH-ywsaPtNJtK5dK3UkrDv8yGiztNRqKcsD6Ar4I",
-      array: new Uint8Array(), // Real value will come later
+      // Real value comes from urlBase64ToUint8Array in beforeAll; its buffer type
+      // is the generic one, so the placeholder must not narrow it to ArrayBuffer.
+      array: new Uint8Array() as ReturnType<typeof urlBase64ToUint8Array>,
     },
     2: {
       b64: "BAafvpurGY78AQTBnpOtpH9NidCw4SE+pX1H/X+E7xNUrZxNyF3ZMg1wCwvPQoRsd9wJM5WpY1AdunnmkQHTEho=",
-      array: new Uint8Array(),
+      array: new Uint8Array() as ReturnType<typeof urlBase64ToUint8Array>,
     },
   };
 
@@ -121,7 +122,7 @@ describe("doesExistingSubscriptionKeyMatchCurrent tests", () => {
   it("returns true when there is no pushManager", async () => {
     (swMock as any).getRegistration = jest.fn().mockImplementation(() => Promise.resolve({}));
     expect(await sdk.doesExistingSubscriptionKeyMatchCurrent()).toBe(true);
-    expect((swMock as any).getRegistration).toBeCalled();
+    expect((swMock as any).getRegistration).toHaveBeenCalled();
   });
 
   it("returns true when there is no pushManager subscription", async () => {
@@ -132,7 +133,7 @@ describe("doesExistingSubscriptionKeyMatchCurrent tests", () => {
     };
     (swMock as any).getRegistration = () => Promise.resolve(registrationMock);
     expect(await sdk.doesExistingSubscriptionKeyMatchCurrent()).toBe(true);
-    expect(registrationMock.pushManager.getSubscription).toBeCalled();
+    expect(registrationMock.pushManager.getSubscription).toHaveBeenCalled();
   });
 
   it("returns true when there is no pushManager subscription applicationServerKey", async () => {
@@ -149,7 +150,7 @@ describe("doesExistingSubscriptionKeyMatchCurrent tests", () => {
     };
     (swMock as any).getRegistration = () => Promise.resolve(registrationMock);
     expect(await sdk.doesExistingSubscriptionKeyMatchCurrent()).toBe(true);
-    expect(registrationMock.pushManager.getSubscription).toBeCalled();
+    expect(registrationMock.pushManager.getSubscription).toHaveBeenCalled();
   });
 
   it("returns true when the keys match", async () => {
@@ -166,7 +167,7 @@ describe("doesExistingSubscriptionKeyMatchCurrent tests", () => {
     };
     (swMock as any).getRegistration = () => Promise.resolve(registrationMock);
     expect(await sdk.doesExistingSubscriptionKeyMatchCurrent()).toBe(true);
-    expect(registrationMock.pushManager.getSubscription).toBeCalled();
+    expect(registrationMock.pushManager.getSubscription).toHaveBeenCalled();
   });
 
   it("returns true when the keys don't match", async () => {
@@ -183,6 +184,6 @@ describe("doesExistingSubscriptionKeyMatchCurrent tests", () => {
     };
     (swMock as any).getRegistration = () => Promise.resolve(registrationMock);
     expect(await sdk.doesExistingSubscriptionKeyMatchCurrent()).toBe(false);
-    expect(registrationMock.pushManager.getSubscription).toBeCalled();
+    expect(registrationMock.pushManager.getSubscription).toHaveBeenCalled();
   });
 });

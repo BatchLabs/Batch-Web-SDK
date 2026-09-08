@@ -8,6 +8,7 @@ import { IBatchSDK } from "../../public-api";
 import { BasePopinComponent } from "../base-popin-component";
 import { IPopinConfig } from "../popin/component";
 import html from "./content.html";
+
 import style, { IIndexableStyle } from "./style.css";
 
 const ENABLE_LOGS = false;
@@ -97,7 +98,7 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
           showIfPermissionGranted: true,
         },
         config
-      ) as IAlertConfig,
+      ),
       typeof config.popin === "object" ? config.popin : {}
     );
 
@@ -156,12 +157,13 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
     div.className = bannerClass;
     div.innerHTML = html;
     div.id = "batchsdk-ui-alert-container";
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint reads IStyleCss and IIndexableStyle as identical; tsc does not (interface has no implicit index signature), and dropping the assertion fails type-check with TS2345
     updateClassNames(div, style as IIndexableStyle);
 
     this.container = dom(div);
     this.container.style({ display: "none" });
 
-    if (Number.isInteger(this.conf.zIndex as number)) {
+    if (Number.isInteger(this.conf.zIndex)) {
       this.container.style({ zIndex: String(this.conf.zIndex) });
     }
 
@@ -176,7 +178,8 @@ export default class Alert extends BasePopinComponent<IAlertConfig> {
       fontSize: this.conf.btnFontSize ? this.conf.btnFontSize + "px" : null,
     });
 
-    const { apiKey, defaultIcon } = this.api.getConfiguration();
+    const { apiKey, push } = this.api.getConfiguration();
+    const defaultIcon = push && typeof push === "object" ? push.defaultIcon : undefined;
     const icon = this.conf.icon ?? defaultIcon ?? `${ICONS_URL}/${apiKey}/default-icon.png`;
     if (icon) {
       this.container

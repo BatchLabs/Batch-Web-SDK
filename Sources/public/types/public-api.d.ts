@@ -157,7 +157,7 @@ export namespace BatchSDK {
      *
      * Return a promise that resolves the IProfile instance.
      *
-     * See `https://doc.batch.com/web/custom-data/customid` for more info.
+     * See `https://doc.batch.com/developer/sdk/web/profile-data/custom-user-id` for more info.
      */
     identify: (identifier: { customId?: string } | null | undefined) => Promise<IProfile>;
 
@@ -170,7 +170,7 @@ export namespace BatchSDK {
      *
      * If your edits result in your attributes going over the limit, an error will be logged and
      * _all_ of the changes described in the transaction will be rolled back, as if nothing happened.
-     * See `https://doc.batch.com/web/custom-data/custom-attributes` for more info about the limits.
+     * See `https://doc.batch.com/developer/sdk/web/profile-data/attributes` for more info about the limits.
      *
      * Escaping the editor instance is not supported: calling any method on it once your callback has ended _will_
      * throw an exception.
@@ -184,7 +184,7 @@ export namespace BatchSDK {
 
   /**
    * Batch's Profile Data Editor.
-   * See `https://doc.batch.com/ios/custom-data/custom-attributes` for more info.
+   * See `https://doc.batch.com/developer/sdk/web/profile-data/attributes` for more info.
    */
   interface IProfileDataEditor {
     /**
@@ -254,28 +254,8 @@ export namespace BatchSDK {
   }
 
   export interface ISDKConfiguration {
-    dev: boolean;
-    smallIcon?: string;
-    defaultIcon?: string;
-    subdomain?: string;
     authKey: string;
     apiKey: string;
-    vapidPublicKey?: string;
-    /**
-     * @deprecated used by old versions
-     * @ignore
-     */
-    sameOrigin?: boolean;
-    safari?: ISafariConfig;
-    /**
-     * Enable features that are triggered using a hash in the URL. Default: true
-     */
-    enableHashFeatures?: boolean;
-    ui?: ISDKUIConfiguration | null;
-    /**
-     * Service Worker related configuration
-     */
-    serviceWorker?: ISDKServiceWorkerConfiguration;
     /**
      * Default data collection related configuration
      */
@@ -284,6 +264,47 @@ export namespace BatchSDK {
      * Migrations related configuration
      */
     migrations?: ISDKMigrationsConfiguration;
+    /**
+     * Enable features triggered using a hash in the URL (default: false).
+     */
+    enableHashFeatures?: boolean;
+    /**
+     * Push subscription and service worker module. Each module carries its own
+     * configuration object at the root of the config.
+     *
+     * Pass a configuration object to enable it (all fields optional), or `false` /
+     * `null` to disable it. Omitting the key keeps push enabled with its defaults,
+     * so existing integrations are unaffected. Disabling it skips its prerequisites
+     * (for example a Data-Collect-only integration can set `push: false` and run
+     * without a `vapidPublicKey`).
+     */
+    push?: ISDKPushModuleConfiguration | false | null;
+  }
+
+  /**
+   * Configuration carried by the `push` module.
+   */
+  export interface ISDKPushModuleConfiguration {
+    /**
+     * VAPID public key used to subscribe to Web Push.
+     */
+    vapidPublicKey?: string;
+    /**
+     * Service Worker related configuration.
+     */
+    serviceWorker?: ISDKServiceWorkerConfiguration;
+    /**
+     * Small icon displayed on the push notification.
+     */
+    smallIcon?: string;
+    /**
+     * Default icon used by the push notification and the subscription prompts.
+     */
+    defaultIcon?: string;
+    /**
+     * Configuration of the push subscription UI components (button, popin, alert, banner, switcher, native).
+     */
+    ui?: ISDKUIConfiguration | null;
   }
 
   /**
@@ -350,13 +371,6 @@ export namespace BatchSDK {
   export interface ISDKUIElementConfiguration {
     [key: string]: unknown;
   }
-
-  /**
-   * SDK Safari Configuration
-   */
-  export type ISafariConfig = {
-    [key: string]: string;
-  };
 
   /**
    * SDK Event names
@@ -525,8 +539,6 @@ export namespace BatchSDK {
      *
      * If there is no worker or no push subscription, the promise resolves to true as
      * a subscription would most likely succeed.
-     *
-     * Always returns true on Safari, as it doesn't support standard push notifications.
      */
     doesExistingSubscriptionKeyMatchCurrent: () => Promise<boolean>;
 

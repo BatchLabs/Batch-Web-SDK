@@ -66,10 +66,6 @@ const getLastKnownGoodConfiguration = (): Promise<IPrivateBatchSDKConfiguration>
         throw new Error("Configuration error: 'authKey' is mandatory");
       }
 
-      if (typeof config.dev !== "boolean") {
-        config.dev = false;
-      }
-
       return config;
     });
 };
@@ -96,7 +92,7 @@ const getEventTracker = (): Promise<EventTracker> => {
         referrer = config.internal.referrer;
       }
 
-      return new EventTracker(config.dev || false, new WebserviceExecutor(config.apiKey, config.authKey, config.dev, referrer, db));
+      return new EventTracker(new WebserviceExecutor(config.apiKey, config.authKey, referrer, db));
     })
     .catch(e => {
       // TODO: Fix this eslint disable, can we break the error string?
@@ -106,7 +102,7 @@ const getEventTracker = (): Promise<EventTracker> => {
         "Error while getting the WS executor with the real configuration. Returning an event tracker with a stub executor. Error:",
         e
       );
-      return new EventTracker(false, new StubWebserviceExecutor());
+      return new EventTracker(new StubWebserviceExecutor());
     });
 };
 
@@ -172,7 +168,7 @@ const pushSubscriptionChanged = (event: PushSubscriptionChangeEvent): Promise<vo
         if (config.vapidPublicKey) {
           const pubKey = urlBase64ToUint8Array(config.vapidPublicKey);
           subOptions = {
-            applicationServerKey: pubKey,
+            applicationServerKey: pubKey as BufferSource,
             userVisibleOnly: true,
           };
         } else {
@@ -231,7 +227,7 @@ const notificationClickEventReceived = (event: NotificationEvent): Promise<void>
           .then(receiver => {
             return getEventTracker().then(tracker => {
               return receiver.handleNotificationClickEvent(event, tracker).catch(err => {
-                Log.debug(moduleName, "Error while handling notification click event", err);
+                Log.error(moduleName, "Error while handling notification click event", err);
               });
             });
           })
@@ -275,7 +271,7 @@ self.handleBatchSDKEvent = (eventName: string, event: Event): Promise<void> => {
     case "pushsubscriptionchange":
       return pushSubscriptionChanged(event as PushSubscriptionChangeEvent);
     case "install":
-      self.skipWaiting();
+      void self.skipWaiting();
       break;
     case "push":
       return pushEventReceived(event as PushEvent);

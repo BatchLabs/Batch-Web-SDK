@@ -17,7 +17,18 @@ export interface ILoggerInternalEvent extends Event {
   level: string;
 }
 
+export interface ILoggerEntryEventDetail {
+  level: LogLevel;
+  levelName: keyof typeof LogLevel;
+  module: string;
+  prefix: string;
+  args: unknown[];
+  timestamp: number;
+}
+
 const publicModuleName = "public";
+export const LOGGER_ENTRY_EVENT_NAME = "___batchSDK___.logger.entry";
+export const LOGGER_WRITE_EVENT_NAME = "___batchSDK___.logger.write";
 
 class Logger {
   public level: LogLevel;
@@ -25,12 +36,14 @@ class Logger {
   private enabledModules: Set<string>;
   private disabledModules: Set<string>;
   private tunnelingTo?: Window | MessagePort;
+  private hasGlobalEventListeners: boolean;
 
   public constructor() {
     this.level = LogLevel.PublicError;
     this.enabledModules = new Set();
     this.disabledModules = new Set();
     this.name = "SDK";
+    this.hasGlobalEventListeners = false;
 
     this.enabledModules.add(publicModuleName);
 
@@ -53,7 +66,7 @@ class Logger {
         const level = +rawLevel;
 
         if (level >= 0 && level <= 7) {
-          this.level = level as LogLevel;
+          this.level = level;
         }
       }
 
@@ -77,49 +90,37 @@ class Logger {
             });
           }
         }
-      } catch (_) {
-        // We don't give a ... your guess
+      } catch (e: unknown) {
+        console.warn("Batch SDK: failed to parse logger module settings from localStorage:", e);
       }
     }
   }
 
   public addGlobalEventListeners(): void {
+    if (this.hasGlobalEventListeners) {
+      return;
+    }
+
     const safeWindow = safeGetWindow();
     if (safeWindow == null) {
       return;
     }
+    this.hasGlobalEventListeners = true;
     safeWindow.addEventListener("___batchSDK___.logger.enableModule", (e: ILoggerInternalEvent) => this.enableModule(e.module));
     safeWindow.addEventListener("___batchSDK___.logger.disableModule", (e: ILoggerInternalEvent) => this.disableModule(e.module));
     safeWindow.addEventListener("___batchSDK___.logger.setLogLevel", (e: ILoggerInternalEvent) => {
-      let levelValue;
-      switch (e.level.toLowerCase()) {
-        case "none":
-          levelValue = 0;
-          break;
-        case "public":
-          levelValue = 1;
-          break;
-        case "publicerror":
-          levelValue = 2;
-          break;
-        case "error":
-          levelValue = 3;
-          break;
-        case "warn":
-          levelValue = 4;
-          break;
-        case "info":
-          levelValue = 5;
-          break;
-        case "trace":
-          levelValue = 6;
-          break;
-        case "debug":
-        default:
-          levelValue = 7;
-          break;
+      this.level = this.parseLogLevel(e.level);
+    });
+    safeWindow.addEventListener(LOGGER_WRITE_EVENT_NAME, event => {
+      const detail = (event as CustomEvent<{ level?: unknown; module?: unknown; args?: unknown }>).detail;
+      if (!detail) {
+        return;
       }
-      this.level = levelValue;
+
+      const level = this.parseLogLevel(detail.level);
+      const module = typeof detail.module === "string" ? detail.module : publicModuleName;
+      const args = Array.isArray(detail.args) ? detail.args : [];
+      this.log(level, module, ...args);
     });
   }
 
@@ -178,7 +179,7 @@ class Logger {
 
   // tslint:disable:no-console
   // Workaround so that webpack does not strip the console method call
-  private getGroupMethod(): (groupName?: string) => void {
+  private getGroupMethod(): (...data: unknown[]) => void {
     return console.group;
   }
 
@@ -226,36 +227,14 @@ class Logger {
   public log(...args: unknown[]): void; // Define a function overload to make the dynamic call work
 
   public log(level: LogLevel, moduleName: string, ...args: unknown[]): void {
-    if (this.tunnelingTo) {
-      // convert args for message
-      const a: unknown[] = [];
-      args.forEach((v: unknown) => {
-        switch (typeof v) {
-          case "number":
-          case "string":
-          case "boolean":
-            a.push(v);
-            break;
-          case "object": {
-            try {
-              a.push(v ? "[" + v.toString() + "]" : null);
-            } catch (e) {
-              a.push("[No toString method]");
-            }
-            break;
-          }
-          default:
-            a.push("[Unsupported type " + typeof v + "]");
-        }
-      });
-    }
-
     if (level === LogLevel.Public || level === LogLevel.PublicError) {
       moduleName = publicModuleName;
     }
 
     if (this.isModuleEnabled(moduleName) && this.shouldLogForLevel(level)) {
-      this.logMethodForLevel(level).apply(console, [this.formatPrefix(moduleName) + " -", ...args]);
+      const prefix = this.formatPrefix(moduleName);
+      this.logMethodForLevel(level).apply(console, [prefix + " -", ...args]);
+      this.emitEntry(level, moduleName, prefix, args);
     }
   }
 
@@ -269,6 +248,81 @@ class Logger {
       const logMethod = this.logMethodForLevel(level);
       lines.forEach(l => logMethod.apply(console, [l]));
       this.getGroupEndMethod().apply(console, []);
+    }
+  }
+
+  private emitEntry(level: LogLevel, moduleName: string, prefix: string, args: unknown[]): void {
+    const detail: ILoggerEntryEventDetail = {
+      level,
+      levelName: LogLevel[level] as keyof typeof LogLevel,
+      module: moduleName,
+      prefix,
+      args: this.serializeArgs(args),
+      timestamp: Date.now(),
+    };
+
+    if (this.tunnelingTo && "postMessage" in this.tunnelingTo) {
+      this.tunnelingTo.postMessage({
+        type: LOGGER_ENTRY_EVENT_NAME,
+        detail,
+      });
+    }
+
+    const safeWindow = safeGetWindow();
+    if (safeWindow == null || typeof safeWindow.dispatchEvent !== "function") {
+      return;
+    }
+
+    safeWindow.dispatchEvent(new CustomEvent<ILoggerEntryEventDetail>(LOGGER_ENTRY_EVENT_NAME, { detail }));
+  }
+
+  private serializeArgs(args: unknown[]): unknown[] {
+    const serialized: unknown[] = [];
+    args.forEach((v: unknown) => {
+      switch (typeof v) {
+        case "number":
+        case "string":
+        case "boolean":
+          serialized.push(v);
+          break;
+        case "object": {
+          try {
+            serialized.push(v ? "[" + v.toString() + "]" : null);
+          } catch (_e) {
+            serialized.push("[No toString method]");
+          }
+          break;
+        }
+        default:
+          serialized.push("[Unsupported type " + typeof v + "]");
+      }
+    });
+    return serialized;
+  }
+
+  private parseLogLevel(level: unknown): LogLevel {
+    const value = typeof level === "string" ? level.toLowerCase() : "";
+    switch (value) {
+      case "none":
+        return LogLevel.None;
+      case "public":
+        return LogLevel.Public;
+      case "publicerror":
+        return LogLevel.PublicError;
+      case "error":
+        return LogLevel.Error;
+      case "warn":
+        return LogLevel.Warn;
+      case "info":
+        return LogLevel.Info;
+      case "trace":
+        return LogLevel.Trace;
+      case "debug":
+        return LogLevel.Debug;
+      default:
+        // Historical contract of the setLogLevel window event: an unknown level
+        // enables everything rather than silently disabling logging.
+        return LogLevel.Debug;
     }
   }
 }

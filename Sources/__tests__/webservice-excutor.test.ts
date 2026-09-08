@@ -1,4 +1,3 @@
-/* eslint-env jest */
 // @ts-nocheck
 
 jest.mock("com.batch.shared/persistence/profile");
@@ -43,14 +42,13 @@ const mockedWS = {
 
 beforeAll(() => {
   return ParameterStore.getInstance().then(s => {
-    executor = new WebserviceExecutor("my-api-key", "myAuthKey", false, "http://my-referer", s);
+    executor = new WebserviceExecutor("my-api-key", "myAuthKey", "http://my-referer", s);
   });
 });
 
 test("constuctor", () => {
   expect(executor instanceof WebserviceExecutor).toBe(true);
   expect(executor.apiKey).toBe("my-api-key");
-  expect(executor.devMode).toBe(false);
   expect(executor.referrer).toBe("http://my-referer");
   expect(executor.parameterStore instanceof ParameterStore).toBe(true);
 });

@@ -1,4 +1,3 @@
-/* eslint-env jest */
 import { expect, it } from "@jest/globals";
 import Event from "com.batch.shared/event/event";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";

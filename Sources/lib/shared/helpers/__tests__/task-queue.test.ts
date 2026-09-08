@@ -1,7 +1,10 @@
-/* eslint-env jest */
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeAll, describe, expect, it } from "@jest/globals";
 
 import { TaskQueue } from "../task-queue";
+
+const immediateTask = (): number => {
+  return 2;
+};
 
 describe("Task Queue", () => {
   let taskQueue: TaskQueue;
@@ -10,14 +13,14 @@ describe("Task Queue", () => {
     taskQueue = new TaskQueue();
   });
 
-  it("executes synchronous tasks", () => {
+  it("executes synchronous tasks", async () => {
     const result = 12345;
-    expect(taskQueue.postAsync(() => result)).resolves.toEqual(result);
+    await expect(taskQueue.postAsync(() => result)).resolves.toEqual(result);
   });
 
-  it("executes asynchronous tasks", () => {
+  it("executes asynchronous tasks", async () => {
     const result = 12345;
-    expect(
+    await expect(
       taskQueue.postAsync(() => {
         return new Promise(resolve => {
           setTimeout(() => {
@@ -28,16 +31,16 @@ describe("Task Queue", () => {
     ).resolves.toEqual(result);
   });
 
-  it("should handle failed tasks", () => {
+  it("should handle failed tasks", async () => {
     const expectedError = new Error("test error");
 
-    expect(
+    await expect(
       taskQueue.postAsync(() => {
         throw expectedError;
       })
-    ).rejects.toThrowError(expectedError);
+    ).rejects.toThrow(expectedError);
 
-    expect(
+    await expect(
       taskQueue.postAsync(() => {
         return new Promise((_, reject) => {
           setTimeout(() => {
@@ -45,14 +48,10 @@ describe("Task Queue", () => {
           }, 50);
         });
       })
-    ).rejects.toThrowError(expectedError);
+    ).rejects.toThrow(expectedError);
   });
 
   it("should chain tasks sequentially", async () => {
-    const immediateTask = (): number => {
-      return 2;
-    };
-
     let controlablePromiseResolve: any = undefined;
     const controlledPromise = new Promise(resolve => {
       controlablePromiseResolve = resolve;

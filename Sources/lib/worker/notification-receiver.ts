@@ -25,9 +25,6 @@ export default class NotificationReceiver {
 
   public constructor(lastConfig: object | undefined | null, subscribed: boolean) {
     if (NotificationReceiver.isConfigValid(lastConfig)) {
-      if (typeof lastConfig.dev !== "boolean") {
-        lastConfig.dev = false;
-      }
       this.lastKnownConfiguration = lastConfig;
     } else {
       this.lastKnownConfiguration = null;
@@ -213,7 +210,7 @@ export default class NotificationReceiver {
 
       if (targetHref) {
         Log.debug(moduleName, "Opening link from notification", targetHref);
-        self.clients.openWindow(targetHref);
+        void self.clients.openWindow(targetHref);
         return Promise.resolve();
       } else {
         throw new Error("Could not open notification: Internal error (11)");

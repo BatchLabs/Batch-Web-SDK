@@ -1,4 +1,3 @@
-/* eslint-env jest */
 // @ts-nocheck
 
 import { EventBus } from "com.batch.shared/local-event-bus";
@@ -12,7 +11,7 @@ const lateTestEventListner = jest.fn();
 test("we can subscribe listener to bus", () => {
   expect(() => bus.subscribe("*", allEventListener)).not.toThrow();
   expect(() => bus.subscribe("test", testEventListner)).not.toThrow();
-  expect(() => bus.subscribe("test", "test")).toThrow();
+  expect(() => bus.subscribe("test", "test")).toThrow("wrong parameters");
   expect(bus.listeners.get("*").length).toBe(1);
   expect(bus.listeners.get("test").length).toBe(1);
 });

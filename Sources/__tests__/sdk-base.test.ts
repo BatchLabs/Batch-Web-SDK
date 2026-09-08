@@ -1,7 +1,6 @@
-/* eslint-env jest */
 // @ts-nocheck
 
-import { expect, jest } from "@jest/globals";
+import { expect } from "@jest/globals";
 jest.mock("com.batch.shared/persistence/profile");
 jest.mock("com.batch.shared/persistence/session");
 jest.mock("com.batch.shared/persistence/user-data");
@@ -25,7 +24,6 @@ window.Notification = {
 beforeAll(async () => {
   await sdk.setup({
     apiKey: "DEV12345",
-    subdomain: "webpush",
     authKey: "1.test",
     vapidPublicKey: "BDSVNxldVbaALdoOMMp3eBOmZBC9saw6lNP5H1zF5E2eFe2hD_Ooqdzw4BleKK3cRtbP5483XzpGw4QfEqe4mBM",
   });

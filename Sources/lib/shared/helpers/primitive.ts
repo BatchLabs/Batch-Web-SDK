@@ -16,6 +16,21 @@ export function asBoolean(value: unknown, fallback: boolean): boolean {
   return fallback;
 }
 
+export function asObject(value: unknown): Record<string, unknown> {
+  if (value != null && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+export function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+export function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
 export function isString(value: unknown): value is string {
   return typeof value === "string" || value instanceof String;
 }

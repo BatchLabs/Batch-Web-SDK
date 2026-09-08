@@ -7,8 +7,8 @@ const shared = {
   chrome2: "Sur la permission Notifications, cliquez sur Autoriser",
   firefox1: "Cliquez sur le bouton bulle à gauche de la barre d'adresse",
   firefox2: 'Cliquez sur la croix [x] à côté de "Bloqué"',
-  safari1: "Cliquer sur Safari > Preferences dans le menu",
-  safari2: "Dans Notifications, choisir Autoriser pour ce site",
+  safari1: "Ouvrez Safari > Réglages, puis l'onglet Sites web",
+  safari2: "Dans Notifications, réglez ce site sur Autoriser",
 };
 
 export const translations = {

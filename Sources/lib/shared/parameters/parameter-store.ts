@@ -54,7 +54,7 @@ export default class ParameterStore implements IParameterStore {
    *  - rejects if key is not managed by any provider
    */
   public getParameterValue<T>(key: string): Promise<T | null>;
-  public getParameterValue(key: string): Promise<unknown | null> {
+  public getParameterValue(key: string): Promise<unknown> {
     if (allowedKeyByProvider.system.indexOf(key) !== -1) {
       return this.providers.system.getParameterForKey(key as SystemKeys);
     }
@@ -105,7 +105,7 @@ export default class ParameterStore implements IParameterStore {
    *  - resolve to false if the key did not need update
    *  - rejects if key is not managed by any writable provider or if it fails to update
    */
-  public setOrRemoveParameterValueIfChanged(key: string, value: unknown | null | undefined): Promise<boolean> {
+  public setOrRemoveParameterValueIfChanged(key: string, value: unknown): Promise<boolean> {
     // We never want to save an undefined value. If the saved value was undefined
     // this method will correct it.
     const definedValue = typeof value === "undefined" ? null : value;

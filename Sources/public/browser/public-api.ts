@@ -1,20 +1,19 @@
+import { normalizePublicConfig } from "com.batch.dom/sdk-impl/push-config";
 import { ISDK, ISubscriptionState, Permission } from "com.batch.dom/sdk-impl/sdk";
-import { createSDKFactory } from "com.batch.dom/sdk-impl/sdk-factory";
+import { StandardSDK } from "com.batch.dom/sdk-impl/sdk-standard";
 import getTranslator from "com.batch.dom/ui/translator";
 import { UIComponentHandler, UIComponentState } from "com.batch.dom/ui/uicomponent-handler";
+import { TypedEventAttributeType } from "com.batch.shared/event/event-types";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
-import { asBoolean } from "com.batch.shared/helpers/primitive";
 import { Evt, LocalEventBus } from "com.batch.shared/local-event-bus";
 import LocalSDKEvent, { IUIComponentReadyEventArgs } from "com.batch.shared/local-sdk-events";
 import { Log } from "com.batch.shared/logger";
-import { IPrivateBatchSDKConfiguration } from "com.batch.shared/sdk-config";
+import { UserAttributeType } from "com.batch.shared/profile/user-data-types";
 
-import { SDK_VERSION } from "../../config";
-import { BatchSDK } from "../types/public-api";
+import type { BatchSDK } from "../types/public-api";
 import { IUIComponent } from "./ui/base-component";
 
 const logModuleName = "public-api";
-const RUNS_ON_ORIGIN = true;
 
 export default function newPublicAPI(): BatchSDK.IPublicAPI {
   /**
@@ -29,7 +28,7 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
   const ready: Promise<void> = new Promise<void>(resolve => {
     // Old safari browsers returned "loaded", unfortunately TS doesn't ship that value in their definition
     // and we don't live in their ideal world
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     if (document.readyState === "complete" || (document as any).readyState === "loaded" || document.readyState === "interactive") {
       resolve();
     } else {
@@ -107,27 +106,41 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
       }
       setupCalled = true;
 
+      // Narrow the root `push` key to its settings object (undefined when false/null).
+      // Kept inline intentionally; not refactoring the shipped public entry point.
+      // oxlint-disable-next-line unicorn/consistent-function-scoping
+      const narrowPush = (c: BatchSDK.ISDKConfiguration): BatchSDK.ISDKPushModuleConfiguration | undefined =>
+        typeof c.push === "object" && c.push !== null ? c.push : undefined;
+
       // Keep the ServiceWorkerRegistration promise of the config in a safe variable
       // as the config cloning will kill it.
       // Unfortunately this means that getConfiguration() is now slightly inaccurate.
       Log.debug(logModuleName, "Extracting ServiceWorkerRegistration from configuration");
       let serviceWorkerRegistrationPromise: Promise<ServiceWorkerRegistration> | undefined = undefined;
       // Note: this might break on websites that incorrectly polyfill Promise
-      if (config.serviceWorker?.registration instanceof Promise) {
-        serviceWorkerRegistrationPromise = config.serviceWorker?.registration;
+      const inputPush = narrowPush(config);
+      if (inputPush?.serviceWorker?.registration instanceof Promise) {
+        serviceWorkerRegistrationPromise = inputPush.serviceWorker.registration;
       }
 
       originalConfig = deepClone(config); // Keep a separate clone because the sdk will modify it
       config = deepClone(config);
 
-      // Delete the service worker from the cloned config: we do not want to modify the dev's config object
-      // We also don't want to accidentally serialize it
+      const clonedPush = narrowPush(config);
+
+      // Delete the service worker registration from the cloned configs: we do not
+      // want to modify the dev's config object nor accidentally serialize a Promise.
       if (serviceWorkerRegistrationPromise) {
-        delete originalConfig.serviceWorker?.registration;
-        delete config.serviceWorker?.registration;
+        const originalPush = narrowPush(originalConfig);
+        if (originalPush?.serviceWorker) {
+          delete originalPush.serviceWorker.registration;
+        }
+        if (clonedPush?.serviceWorker) {
+          delete clonedPush.serviceWorker.registration;
+        }
 
         // Validate that the config is consistent
-        if (config.serviceWorker?.automaticallyRegister !== false) {
+        if (clonedPush?.serviceWorker?.automaticallyRegister !== false) {
           Log.publicError(
             "A Service Worker registration has been set but 'automaicallyRegister' is absent or not set to 'false'. It will be ignored"
           );
@@ -135,45 +148,37 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
         }
       }
 
-      const uiConfig = config.ui;
+      // UI components (subscription prompts) are push presentation: their config
+      // lives under `push.ui`.
+      const uiConfig = clonedPush?.ui;
       if (uiConfig && typeof uiConfig.language === "string") {
         getTranslator().setLanguage(uiConfig.language);
         delete uiConfig.language;
       }
-
       const origin = document.location.origin.toLowerCase();
 
-      const sdkConfig: IPrivateBatchSDKConfiguration = Object.assign({}, config, {
-        internal: {
+      // Normalize the public `push` shape into the flat internal config at the boundary.
+      const sdkConfig = normalizePublicConfig(
+        config,
+        clonedPush,
+        {
           // This erases "internal" in the public config, on purpose
           origin: origin.startsWith("http") ? origin : null,
           referrer: document.location.href.toLowerCase(),
         },
-        internalTransient: {
+        {
           serviceWorkerRegistrationPromise,
-        },
-        ui: null,
-      });
+        }
+      );
 
       const isSecure = window.isSecureContext;
       if (!isSecure) {
         Log.warn(logModuleName, "Insecure origin: notification push will not work.");
       }
 
-      if (sdkConfig.sameOrigin) {
-        throw new Error('Remove "sameOrigin" from the SDK configuration, or downgrade the SDK to the previous major version.');
-      }
-
-      if (asBoolean(sdkConfig.dev, false)) {
-        Log.public(
-          "Starting version " + SDK_VERSION + " in development mode.",
-          "Environment: " + (RUNS_ON_ORIGIN ? "Fully secure" : "HTTP/Multidomain (subdomain: " + sdkConfig.subdomain + ")")
-        );
-      }
-
-      instance = ready.then(async () => {
-        const factory = await createSDKFactory();
-        return factory.setup(sdkConfig);
+      instance = ready.then(() => {
+        const sdk = new StandardSDK();
+        return sdk.setup(sdkConfig).then(() => sdk);
       });
 
       // Handle window hash change
@@ -206,15 +211,6 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
           // init ui components
           const uiReady = uiComponents.init(uiConfig || {});
 
-          void sdk
-            .getInstallationID()
-            .then(iid => {
-              if (sdkConfig.dev) {
-                Log.public("Installation ID: " + (iid || "unknown"));
-              }
-            })
-            .catch(e => Log.warn(logModuleName, "Could not get installation ID", e));
-
           /**
            * Start emitting browser events as soon as the ui is ready.
            * This part is executed in background (do not return any promise),
@@ -225,7 +221,10 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
            */
           uiReady
             .catch(e => Log.warn(logModuleName, "Error while initializing the ui :", e))
-            .then(() => sdk.getSubscriptionState())
+            // Skip the push-only subscription state when push is disabled.
+            .then((): ISubscriptionState | Promise<ISubscriptionState> =>
+              sdkConfig.pushEnabled ? sdk.getSubscriptionState() : { permission: "denied" as Permission, subscribed: false }
+            )
             .then(state => LocalEventBus.emit(LocalSDKEvent.UiReady, state, false))
             .catch(e => Log.warn(logModuleName, e));
         })
@@ -352,8 +351,8 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
      */
     trackEvent: (name: string, params?: BatchSDK.EventDataParams) => getInstance().then(sdk => sdk.trackEvent(name, params)),
 
-    eventAttributeTypes: Object.freeze(BatchSDK.TypedEventAttributeType),
-    userAttributeTypes: Object.freeze(BatchSDK.UserAttributeType),
+    eventAttributeTypes: Object.freeze(TypedEventAttributeType),
+    userAttributeTypes: Object.freeze(UserAttributeType),
 
     getUserAttributes: async () => getInstance().then(sdk => sdk.getUserAttributes()),
 
@@ -481,7 +480,7 @@ export default function newPublicAPI(): BatchSDK.IPublicAPI {
 
 // Dirty trick to extract the public API type, until we refactor it into a separate .d.ts
 // https://stackoverflow.com/a/46587275
-// eslint-disable-next-line
+// oxlint-disable-next-line
 const returnTypeExtractor = <T>(_fn: () => T) => ({}) as T;
 const publicApiType = returnTypeExtractor(newPublicAPI);
 

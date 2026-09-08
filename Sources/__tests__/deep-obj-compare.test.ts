@@ -1,5 +1,3 @@
-/* eslint-env jest */
-
 import deepObjectCompare from "com.batch.shared/helpers/deep-obj-compare";
 
 const a = {

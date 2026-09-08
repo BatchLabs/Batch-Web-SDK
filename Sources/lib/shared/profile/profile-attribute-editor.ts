@@ -4,6 +4,7 @@ import { isProfileTypedAttributeValue } from "com.batch.shared/helpers/typed-att
 import { Log } from "com.batch.shared/logger";
 import {
   deduplicateKeepLast,
+  isProfileURLValueValid,
   isValidAttributeKey,
   isValidStringArrayValue,
   isValidStringValue,
@@ -16,7 +17,7 @@ import { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Profile Attribute Editor";
 
-const allowedSubscriptions = ["subscribed", "unsubscribed"];
+const allowedSubscriptions = new Set(["subscribed", "unsubscribed"]);
 
 /**
  * Batch profile attribute editor
@@ -163,7 +164,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
    * @return This object instance, for method chaining.
    */
   public setEmailMarketingSubscription(state: "subscribed" | "unsubscribed"): ProfileAttributeEditor {
-    if (!allowedSubscriptions.includes(state)) {
+    if (!allowedSubscriptions.has(state)) {
       Log.warn(logModuleName, `Invalid email subscription state, ignoring.`);
       return this;
     }
@@ -389,8 +390,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return;
     }
     if (isURL(value)) {
-      const URLToString = URL.prototype.toString.call(value);
-      if (URLToString.length === 0 || URLToString.length > Consts.AttributeURLMaxLength) {
+      if (!isProfileURLValueValid(value)) {
         Log.warn(
           logModuleName,
           `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
@@ -430,7 +430,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return userAttribute;
     }
     if (isArray(value)) {
-      const lowercased = (value as string[]).map(val => val.toLocaleLowerCase());
+      const lowercased = value.map(val => val.toLocaleLowerCase());
       const deduped = deduplicateKeepLast(lowercased);
       if (!isValidStringArrayValue(deduped, key)) {
         return;
@@ -449,22 +449,19 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
     switch (userAttribute.type) {
       case ProfileAttributeType.URL: {
         if (isURL(userAttribute.value)) {
-          const URLToString = URL.prototype.toString.call(userAttribute.value);
-          if (URLToString.length === 0 || URLToString.length > Consts.AttributeURLMaxLength) {
+          if (!isProfileURLValueValid(userAttribute.value)) {
             Log.warn(
               logModuleName,
               `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
             );
             return;
           }
-          return URLToString;
+          return URL.prototype.toString.call(userAttribute.value);
         }
         if (isString(userAttribute.value)) {
           try {
             const convertedUrlValue = new URL(userAttribute.value);
-            const URLToString = URL.prototype.toString.call(convertedUrlValue);
-
-            if (URLToString.length === 0 || URLToString.length > Consts.AttributeURLMaxLength) {
+            if (!isProfileURLValueValid(convertedUrlValue)) {
               Log.warn(
                 logModuleName,
                 `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
@@ -472,7 +469,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
               return;
             }
 
-            return URLToString;
+            return URL.prototype.toString.call(convertedUrlValue);
           } catch (e) {
             Log.warn(
               logModuleName,
@@ -551,7 +548,7 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
           Log.warn(logModuleName, `Invalid attribute value for the ARRAY type. Must be an array of strings. Ignoring attribute ${key}.`);
           return;
         }
-        const lowercased = (userAttribute.value as string[]).map((val: string) => val.toLocaleLowerCase());
+        const lowercased = userAttribute.value.map((val: string) => val.toLocaleLowerCase());
         const deduped = deduplicateKeepLast(lowercased);
         if (!isValidStringArrayValue(deduped, key)) {
           return;

@@ -174,8 +174,6 @@ it("returns no change same tags", () => {
 });
 
 it("returns no change same tags and attributes", () => {
-  const tags: ProfileCustomDataAttributes = {};
-
   const attributes: ProfileCustomDataAttributes = {
     foobar: {
       type: ProfileAttributeType.INTEGER,

@@ -1,8 +1,7 @@
-/* eslint-env jest */
-import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, describe, expect, it } from "@jest/globals";
 import { IndexedDbMemoryMock } from "com.batch.shared/persistence/__mocks__/indexed-db-memory-mock";
 import { UserDataPersistence } from "com.batch.shared/persistence/user-data";
-import { ProfileAttributeType, ProfileCustomDataAttributes } from "com.batch.shared/profile/profile-data-types";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 import { UserDataStorage } from "com.batch.shared/profile/user-data-storage";
 
 jest.mock("com.batch.shared/persistence/profile");

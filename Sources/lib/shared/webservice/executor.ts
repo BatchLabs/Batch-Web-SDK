@@ -21,20 +21,12 @@ export interface IWebserviceExecutor {
 export default class WebserviceExecutor implements IWebserviceExecutor {
   private apiKey: string;
   private authKey?: string;
-  private devMode: boolean;
   private referrer?: string;
   private parameterStore: ParameterStore;
 
-  public constructor(
-    apiKey: string,
-    authKey: string | undefined,
-    devMode: boolean,
-    referrer: string | undefined,
-    parameterStore: ParameterStore
-  ) {
+  public constructor(apiKey: string, authKey: string | undefined, referrer: string | undefined, parameterStore: ParameterStore) {
     this.apiKey = apiKey;
     this.authKey = authKey;
-    this.devMode = devMode;
     this.referrer = referrer;
     this.parameterStore = parameterStore;
   }
@@ -56,12 +48,8 @@ export default class WebserviceExecutor implements IWebserviceExecutor {
       mode: "cors",
     };
 
-    if (!this.devMode && typeof this.authKey === "string") {
+    if (typeof this.authKey === "string") {
       (options.headers as Headers).set("X-Batch-Auth", this.authKey);
-    }
-
-    if (this.devMode) {
-      (options.headers as Headers).set("X-Batch-Dev", "true");
     }
 
     if (this.referrer) {

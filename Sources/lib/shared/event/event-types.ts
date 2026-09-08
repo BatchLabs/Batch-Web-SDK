@@ -31,6 +31,18 @@ export enum TypedEventAttributeType {
   ARRAY = "a",
   OBJECT = "o",
 }
+
+/** The explicitly typed `{ type, value }` form. Twin of `BatchSDK.EventAttributeValue`, kept in sync by hand. */
+export type TypedEventAttributeValue =
+  | { type: TypedEventAttributeType.BOOLEAN; value: boolean | number }
+  | { type: TypedEventAttributeType.STRING; value: string }
+  | { type: TypedEventAttributeType.URL; value: string | URL }
+  | { type: TypedEventAttributeType.INTEGER; value: number | `${number}` }
+  | { type: TypedEventAttributeType.FLOAT; value: number | `${number}` }
+  | { type: TypedEventAttributeType.DATE; value: Date }
+  | { type: TypedEventAttributeType.ARRAY; value: Array<string | ObjectEventAttribute> }
+  | { type: TypedEventAttributeType.OBJECT; value: ObjectEventAttribute };
+
 export interface IEventDataInternalRepresentation {
   tags: string[];
   label?: string;

@@ -1,5 +1,3 @@
-/* eslint-env jest */
-/* eslint-disable max-len */
 // @ts-nocheck
 
 import { Browser, Platform, UserAgent } from "com.batch.shared/helpers/user-agent";

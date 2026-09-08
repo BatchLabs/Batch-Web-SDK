@@ -11,6 +11,7 @@ import { IS_WEBPACK_DEV_SERVER, SDK_VERSION, SSL_SCRIPT_URL } from "../../../../
 import { IBatchSDK } from "../../public-api";
 import { BaseComponent } from "../base-component";
 import html from "./content.html";
+
 import style, { IIndexableStyle } from "./style.css";
 
 const selectors = {
@@ -76,7 +77,7 @@ export default class Popin extends BaseComponent<IPopinConfig> {
           selector: "body", // by default the body
         },
         config
-      ) as IPopinConfig
+      )
     );
 
     this.userAgent = new UserAgent(navigator.userAgent);
@@ -93,6 +94,7 @@ export default class Popin extends BaseComponent<IPopinConfig> {
     const div = document.createElement("div");
     div.className = style["b-popin"];
     div.innerHTML = html;
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- tsgolint reads IStyleCss and IIndexableStyle as identical; tsc does not (interface has no implicit index signature), and dropping the assertion fails type-check with TS2345
     updateClassNames(div, style as IIndexableStyle);
     this.container = dom(div);
     this.container.selectOne(selectors.header).text(this.conf.title);

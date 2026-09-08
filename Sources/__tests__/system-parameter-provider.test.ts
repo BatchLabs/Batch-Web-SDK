@@ -1,4 +1,3 @@
-/* eslint-env jest */
 // @ts-nocheck
 
 jest.mock("../config");
