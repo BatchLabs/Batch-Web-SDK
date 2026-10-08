@@ -353,6 +353,162 @@
   }
 }
 
+/* `min-width: 0` undoes the `min-content` minimum a fieldset gets from the user agent, along with its box. */
+.iam-field-choice {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* The options sit further from their label than a field's control does: the composer draws them 8px apart. */
+.iam-field-choice > .iam-field-label {
+  margin-bottom: 8px;
+}
+
+.iam-choice-list {
+  --iam-color-resolved: var(--iam-color, inherit);
+  --iam-border-color-resolved: var(--iam-border-color, transparent);
+  --iam-focus-veil-resolved: var(--iam-focus-veil, transparent);
+  --iam-choice-checked-color-resolved: var(--iam-choice-checked-color, currentColor);
+  --iam-choice-spacing-resolved: var(--iam-choice-spacing, 8px);
+  --iam-choice-align-resolved: var(--iam-choice-align, flex-start);
+  display: flex;
+  flex-direction: column;
+  align-items: var(--iam-choice-align-resolved);
+  font-size: var(--iam-font-size, 16px);
+  color: var(--iam-color-resolved, inherit);
+}
+
+/* A row places its options along the main axis; the cross axis then only lines the boxes up with their text. */
+.iam-choice-list--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: var(--iam-choice-align-resolved);
+  margin-bottom: calc(-1 * var(--iam-choice-spacing-resolved));
+}
+
+/* `gap` lands above the browser floor, so the spacing is a margin the last option drops. */
+.iam-choice-item {
+  display: inline-flex;
+  align-items: baseline;
+  position: relative;
+  cursor: pointer;
+  margin-bottom: var(--iam-choice-spacing-resolved);
+}
+
+.iam-choice-item:last-child {
+  margin-bottom: 0;
+}
+
+/* A row can wrap, so every option keeps its bottom margin and the list takes the last row's back. */
+.iam-choice-list--horizontal .iam-choice-item {
+  margin-right: var(--iam-choice-spacing-resolved);
+  margin-bottom: var(--iam-choice-spacing-resolved);
+}
+
+.iam-choice-list--horizontal .iam-choice-item:last-child {
+  margin-right: 0;
+}
+
+/* Not `display: none`: the control has to stay focusable while the box next to it paints its state. */
+.iam-choice-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Fixed px box: an `em` one would vanish on a payload declaring a zero font size. */
+.iam-choice-box {
+  flex: none;
+  box-sizing: border-box;
+  position: relative;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border: 1px solid var(--iam-border-color-resolved);
+  border-radius: 4px;
+  line-height: 16px;
+}
+
+/* A line of the option's font centered in the box: aligned on the text's baseline, the box then centers on its first line, whatever the line height. */
+.iam-choice-box::before {
+  content: "\200b";
+}
+
+.iam-choice-input[type="radio"] + .iam-choice-box {
+  border-radius: 50%;
+}
+
+/* Both controls fill with the checked color and draw their mark in white on top, as the composer does. */
+.iam-choice-input:checked + .iam-choice-box {
+  border-color: var(--iam-choice-checked-color-resolved);
+  background-color: var(--iam-choice-checked-color-resolved);
+}
+
+/* Borders and not a background image: only a border follows the checked color. */
+.iam-choice-input[type="checkbox"]:checked + .iam-choice-box::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 4px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.iam-choice-input[type="radio"]:checked + .iam-choice-box::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  bottom: 5px;
+  left: 5px;
+  border-radius: 50%;
+  background-color: #fff;
+}
+
+.iam-choice-input:focus + .iam-choice-box {
+  box-shadow: 0 0 0 1px var(--iam-focus-veil-resolved), 0 0 0 1px var(--iam-border-color-resolved);
+}
+
+/* No visible border to ring: the box takes the outline the hidden control would have drawn. */
+.iam-choice-list--outline .iam-choice-input:focus + .iam-choice-box {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.iam-choice-input:disabled + .iam-choice-box,
+.iam-choice-input:disabled ~ .iam-choice-text {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Both shapes: the error class lands on the group or on a single control; equal specificity, so this rule stays after the checked one. */
+.iam-choice--error .iam-choice-input + .iam-choice-box,
+.iam-choice-input.iam-choice--error + .iam-choice-box {
+  border-color: var(--iam-error-resolved);
+}
+
+@media (forced-colors: active) {
+  .iam-choice-input:focus + .iam-choice-box {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+    box-shadow: none;
+  }
+
+  /* Forced colors flatten the payload palette; a system color is the one value the mode keeps. */
+  .iam-choice-input:checked + .iam-choice-box {
+    background-color: Highlight;
+    border-color: Highlight;
+  }
+}
+
 .iam-field-error {
   margin: 0;
   max-height: 0;
@@ -487,12 +643,15 @@
   :host(:not([data-batch-messaging-theme])) .iam-button,
   :host([data-batch-messaging-theme="auto"]) .iam-button,
   :host(:not([data-batch-messaging-theme])) .iam-input,
-  :host([data-batch-messaging-theme="auto"]) .iam-input {
+  :host([data-batch-messaging-theme="auto"]) .iam-input,
+  :host(:not([data-batch-messaging-theme])) .iam-choice-list,
+  :host([data-batch-messaging-theme="auto"]) .iam-choice-list {
     --iam-bg-resolved: var(--iam-bg-dark, var(--iam-bg, transparent));
     --iam-color-resolved: var(--iam-color-dark, var(--iam-color, inherit));
     --iam-border-color-resolved: var(--iam-border-color-dark, var(--iam-border-color, transparent));
     --iam-focus-veil-resolved: var(--iam-focus-veil-dark, var(--iam-focus-veil, transparent));
     --iam-placeholder-color-resolved: var(--iam-placeholder-color-dark, var(--iam-placeholder-color));
+    --iam-choice-checked-color-resolved: var(--iam-choice-checked-color-dark, var(--iam-choice-checked-color, currentColor));
   }
 
   :host(:not([data-batch-messaging-theme])) .iam-columns,
@@ -564,12 +723,14 @@
 }
 
 :host([data-batch-messaging-theme="dark"]) .iam-button,
-:host([data-batch-messaging-theme="dark"]) .iam-input {
+:host([data-batch-messaging-theme="dark"]) .iam-input,
+:host([data-batch-messaging-theme="dark"]) .iam-choice-list {
   --iam-bg-resolved: var(--iam-bg-dark, var(--iam-bg, transparent));
   --iam-color-resolved: var(--iam-color-dark, var(--iam-color, inherit));
   --iam-border-color-resolved: var(--iam-border-color-dark, var(--iam-border-color, transparent));
   --iam-focus-veil-resolved: var(--iam-focus-veil-dark, var(--iam-focus-veil, transparent));
   --iam-placeholder-color-resolved: var(--iam-placeholder-color-dark, var(--iam-placeholder-color));
+  --iam-choice-checked-color-resolved: var(--iam-choice-checked-color-dark, var(--iam-choice-checked-color, currentColor));
 }
 
 :host([data-batch-messaging-theme="dark"]) .iam-text {
@@ -629,8 +790,13 @@
   }
 
   .iam-text,
-  .iam-button-label {
+  .iam-button-label,
+  .iam-choice-list {
     font-size: var(--iam-font-size-desktop, var(--iam-font-size, inherit));
+  }
+
+  .iam-choice-list {
+    --iam-choice-spacing-resolved: var(--iam-choice-spacing-desktop, var(--iam-choice-spacing, 8px));
   }
 
   .iam-field-label {

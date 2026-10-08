@@ -1,6 +1,8 @@
 /* eslint-env jest */
 
-import { ActionOutcome } from "../../contracts";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
+
+import { ActionOutcome, FormFieldValue } from "../../contracts";
 import { createLandingPageActionExecutor, LandingPageActionsConfig } from "../landing-page-actions";
 import type { LandingSubmitVerdict, LandingTransport } from "../landing-transport";
 
@@ -24,12 +26,9 @@ function makeConfig(
   return { ...config, submit };
 }
 
-const FIELDS: Record<string, string | boolean | string[]> = { email: "a@b.c" };
+const FIELDS: Record<string, FormFieldValue> = { email: { type: ProfileAttributeType.STRING, value: "a@b.c" } };
 
-async function submitWith(
-  config: LandingPageActionsConfig,
-  fields: Record<string, string | boolean | string[]> = FIELDS
-): Promise<ActionOutcome> {
+async function submitWith(config: LandingPageActionsConfig, fields: Record<string, FormFieldValue> = FIELDS): Promise<ActionOutcome> {
   const executor = createLandingPageActionExecutor(config);
   return executor.execute({ action: "batch.form.submit", args: {} }, { formFields: fields });
 }
@@ -42,10 +41,16 @@ describe("batch.form.submit (landing host)", () => {
   test("hands the collected fields to the transport and locks the form on acceptance", async () => {
     const config = makeConfig();
 
-    const outcome = await submitWith(config, { email: "jean@example.com", consent: true, topics: ["a", "b"] });
+    const fields: Record<string, FormFieldValue> = {
+      email: { type: ProfileAttributeType.STRING, value: "jean@example.com" },
+      consent: { type: ProfileAttributeType.BOOLEAN, value: true },
+      topics: { type: ProfileAttributeType.ARRAY, value: { $add: ["a", "b"] } },
+    };
+
+    const outcome = await submitWith(config, fields);
 
     expect(config.submit).toHaveBeenCalledTimes(1);
-    expect(config.submit).toHaveBeenCalledWith({ email: "jean@example.com", consent: true, topics: ["a", "b"] });
+    expect(config.submit).toHaveBeenCalledWith(fields);
     expect(outcome).toEqual({ kind: "form-feedback", status: "success" });
   });
 
@@ -66,7 +71,7 @@ describe("batch.form.submit (landing host)", () => {
       jest.fn(async (_fields: Record<string, unknown>) => ({ status: "rejected" as const, fieldErrors }))
     );
 
-    const outcome = await submitWith(config, { email: "nope" });
+    const outcome = await submitWith(config, { email: { type: ProfileAttributeType.STRING, value: "nope" } });
 
     expect(outcome).toEqual({ kind: "form-feedback", status: "error", fieldErrors });
     expect(config.showEmbeddedErrorPage).not.toHaveBeenCalled();
@@ -147,9 +152,9 @@ describe("batch.form.submit (landing host)", () => {
       const config = makeConfig();
       const executor = createLandingPageActionExecutor(config);
 
-      const outcome = await executor.execute(REDIRECT, { formFields: { email: "a@b.c" } });
+      const outcome = await executor.execute(REDIRECT, { formFields: { email: { type: ProfileAttributeType.STRING, value: "a@b.c" } } });
 
-      expect(config.submit).toHaveBeenCalledWith({ email: "a@b.c" });
+      expect(config.submit).toHaveBeenCalledWith({ email: { type: ProfileAttributeType.STRING, value: "a@b.c" } });
       expect(outcome).toEqual({
         kind: "form-feedback",
         status: "success",
@@ -165,7 +170,7 @@ describe("batch.form.submit (landing host)", () => {
       );
       const executor = createLandingPageActionExecutor(config);
 
-      const outcome = await executor.execute(REDIRECT, { formFields: { email: "nope" } });
+      const outcome = await executor.execute(REDIRECT, { formFields: { email: { type: ProfileAttributeType.STRING, value: "nope" } } });
 
       expect(outcome).toEqual({ kind: "form-feedback", status: "error", fieldErrors });
     });
@@ -177,7 +182,8 @@ describe("batch.form.submit (landing host)", () => {
         jest.fn(async (_fields: Record<string, unknown>) => Promise.reject(new Error("offline")))
       );
       const executor = createLandingPageActionExecutor(config);
-      const submit = (): Promise<ActionOutcome> => executor.execute(REDIRECT, { formFields: { email: "a@b.c" } });
+      const submit = (): Promise<ActionOutcome> =>
+        executor.execute(REDIRECT, { formFields: { email: { type: ProfileAttributeType.STRING, value: "a@b.c" } } });
 
       await expect(submit()).rejects.toThrow("offline");
       const outcome = await submit();

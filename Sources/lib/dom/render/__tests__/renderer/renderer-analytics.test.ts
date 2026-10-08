@@ -1,6 +1,7 @@
 /* eslint-env jest */
 
 import { MessagePayload } from "com.batch.dom/render/model/types";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import { makeModalPayload } from "../../test-utils/factories/renderer-payloads";
 import { modalRenderer, captureAnalyticsEvents, flushPromises, getHostShadowRoot } from "../../test-utils/helpers/renderer";
@@ -94,7 +95,11 @@ describe("modalRenderer analytics", () => {
     clickSubmit();
     await flushPromises();
 
-    expect(events[1]).toMatchObject({ type: "clicked", action: "batch.form.submit", value: { email_map: "user@batch.com" } });
+    expect(events[1]).toMatchObject({
+      type: "clicked",
+      action: "batch.form.submit",
+      value: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } },
+    });
 
     unsubscribe();
   });

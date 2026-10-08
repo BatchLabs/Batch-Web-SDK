@@ -1,8 +1,14 @@
 import { Consts } from "com.batch.shared/constants/user";
 import deepClone from "com.batch.shared/helpers/object-deep-clone";
-import { isArray, isSet, isString } from "com.batch.shared/helpers/primitive";
+import { isArray, isBoolean, isDate, isNumber, isSet, isString, isURL } from "com.batch.shared/helpers/primitive";
 import { Log } from "com.batch.shared/logger";
-import { isPartialUpdateArrayObject, ProfileNullableStringArrayAttribute } from "com.batch.shared/profile/profile-data-types";
+import {
+  isPartialUpdateArrayObject,
+  ProfileAttributeType,
+  ProfileNullableStringArrayAttribute,
+} from "com.batch.shared/profile/profile-data-types";
+
+import type { BatchSDK } from "../../../public/types/public-api";
 
 const logModuleName = "Profile Attribute Editor";
 
@@ -80,6 +86,11 @@ export function isProfileStringArrayValueValid(value: unknown): boolean {
 export function isProfileURLValueValid(value: URL): boolean {
   const serialized = URL.prototype.toString.call(value);
   return serialized.length > 0 && serialized.length <= Consts.AttributeURLMaxLength;
+}
+
+/** Predicate for the email native attribute: matches `Consts.EmailAddressRegexp` and is at most `Consts.EmailAddressMaxLength` characters. */
+export function isProfileEmailValueValid(value: string): boolean {
+  return Consts.EmailAddressRegexp.test(value) && value.length <= Consts.EmailAddressMaxLength;
 }
 
 /**
@@ -277,5 +288,127 @@ export function removeFromArray(
   // Case: Array attribute doesn't exist
   else {
     return compatModeEnabled ? null : { $remove: new Set(deduplicateKeepLast(values)) };
+  }
+}
+
+/**
+ * Converts a typed attribute value to what the profile stores, or `undefined` with a warning naming `key`.
+ * Both `ProfileAttributeType` enums are accepted: they share their values, not their identity.
+ */
+export function convertValueProfileAttribute(
+  key: string,
+  type: ProfileAttributeType | BatchSDK.ProfileAttributeType,
+  value: unknown
+): string | number | boolean | Set<string> | undefined {
+  switch (type) {
+    case ProfileAttributeType.URL: {
+      if (isURL(value)) {
+        if (!isProfileURLValueValid(value)) {
+          Log.warn(
+            logModuleName,
+            `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
+          );
+          return;
+        }
+        return URL.prototype.toString.call(value);
+      }
+      if (isString(value)) {
+        try {
+          const convertedUrlValue = new URL(value);
+          if (!isProfileURLValueValid(convertedUrlValue)) {
+            Log.warn(
+              logModuleName,
+              `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
+            );
+            return;
+          }
+
+          return URL.prototype.toString.call(convertedUrlValue);
+        } catch (e) {
+          Log.warn(
+            logModuleName,
+            `Invalid attribute value for the URL type, must respect scheme://[authority][path][?query][#fragment] format. Ignoring attribute ${key}.`
+          );
+          return;
+        }
+      }
+      Log.warn(
+        logModuleName,
+        `Invalid attribute value for the URL type. Must be a string, or URL.
+          Ignoring attribute with this value: ${value}.`
+      );
+      return;
+    }
+    case ProfileAttributeType.STRING: {
+      if (isString(value) || isNumber(value)) {
+        const text = value.toString();
+        return isValidStringValue(text, key) ? text : undefined;
+      }
+      Log.warn(
+        logModuleName,
+        `Invalid attribute value for the STRING type. Must be a string, or number.
+        Ignoring attribute with this value: ${value}.`
+      );
+      return;
+    }
+    case ProfileAttributeType.INTEGER: {
+      if (isString(value) || isNumber(value)) {
+        return Math.ceil(Number(value));
+      }
+      Log.warn(
+        logModuleName,
+        `Invalid attribute value for the INTEGER type. Must be a string, or number.
+        Ignoring attribute with this value: ${value}.`
+      );
+      return;
+    }
+    case ProfileAttributeType.FLOAT: {
+      if (isString(value) || isNumber(value)) {
+        return Number(value);
+      }
+      Log.warn(
+        logModuleName,
+        `Invalid attribute value for the FLOAT type. Must be a string, or number.
+        Ignoring attribute with this value: ${value}.`
+      );
+      return;
+    }
+    case ProfileAttributeType.BOOLEAN: {
+      if (isBoolean(value)) {
+        return Boolean(value);
+      }
+      Log.warn(
+        logModuleName,
+        `Invalid attribute value for the BOOLEAN type. Must be a boolean or number.
+        Ignoring attribute with this value: ${value}.`
+      );
+      return;
+    }
+    case ProfileAttributeType.DATE: {
+      if (isDate(value)) {
+        return value.getTime();
+      }
+      Log.warn(
+        logModuleName,
+        `Invalid attribute value for the DATE type. Must be a DATE.
+        Ignoring attribute with this value: ${value}.`
+      );
+      return;
+    }
+    case ProfileAttributeType.ARRAY: {
+      if (!isArray(value)) {
+        Log.warn(logModuleName, `Invalid attribute value for the ARRAY type. Must be an array of strings. Ignoring attribute ${key}.`);
+        return;
+      }
+      // Members keep their case: folding it is the caller's rule, not the profile's.
+      const deduped = deduplicateKeepLast(value as string[]);
+      if (!isValidStringArrayValue(deduped, key)) {
+        return;
+      }
+      return new Set(deduped);
+    }
+    default:
+      Log.warn("This type does not exist. Ignoring attribute.");
+      return;
   }
 }

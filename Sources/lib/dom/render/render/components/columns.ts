@@ -1,4 +1,4 @@
-import type { MessageAnyComponentModel, MessageColumnsModel } from "com.batch.dom/render/model/model";
+import type { MessageComponentModel, MessageColumnsModel } from "com.batch.dom/render/model/model";
 
 import { createElement } from "../component-helpers";
 import { applyRadius, applyResponsiveBox, applyThemePair } from "../dom-utils";
@@ -6,7 +6,7 @@ import { resolveAlignItems, resolveFlexWeight } from "../style-utils";
 
 export function renderColumns(
   component: MessageColumnsModel,
-  renderChild: (child: MessageAnyComponentModel) => HTMLElement | null
+  renderChild: (child: MessageComponentModel) => HTMLElement | null
 ): HTMLElement {
   const el = createElement("div", "iam-columns");
   el.style.display = "flex";

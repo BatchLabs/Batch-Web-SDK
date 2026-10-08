@@ -1,24 +1,26 @@
 import { RENDER_LOG_MODULE, RENDER_MAPS_TO_HONEYPOT } from "com.batch.dom/render/render-constants";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
+import { isInputAttributeType, PROFILE_ATTRIBUTE_TYPES } from "../attribute-kinds";
 import { MessageBorderStyle, MessageInputModel, MessageTextConfiguration, MessageValidationModel } from "../model";
 import {
+  dropComponent,
   normalizeBorderStyleConfiguration,
+  normalizeBoundsPair,
   normalizeBox,
-  normalizeColor,
   normalizeEnum,
+  normalizeFieldLabel,
   normalizeHorizontalAlignment,
   normalizeMarginPlacement,
   normalizeOptionalBox,
   normalizeOptionalColor,
-  normalizeOptionalPositiveNumber,
   normalizeTextConfiguration,
 } from "../normalize-helpers";
 import {
   DEFAULT_BOX_FALLBACK,
   DEFAULT_FALLBACK_COLOR,
   DEFAULT_FIELD_FONT_SIZE,
-  DEFAULT_FIELD_LABEL_FONT_SIZE,
   DEFAULT_FIELD_WIDTH,
   DEFAULT_HORIZONTAL_ALIGN,
   DEFAULT_INPUT_BACKGROUND_COLOR,
@@ -28,7 +30,14 @@ import {
   DEFAULT_INPUT_TYPE,
   DEFAULT_TEXT_MAX_LINES,
 } from "../normalizer-defaults";
-import { MessageHorizontalAlignmentValue, MessageInputPayload, MessageInputTypeValue, MessageValidatablePayload } from "../types";
+import {
+  MessageAttributeTypeValue,
+  MessageComponentTypeValue,
+  MessageHorizontalAlignmentValue,
+  MessageInputPayload,
+  MessageInputTypeValue,
+  MessageValidatablePayload,
+} from "../types";
 
 function normalizeValidatable(payload: MessageValidatablePayload): { required: boolean; validation?: MessageValidationModel } {
   return {
@@ -165,7 +174,7 @@ function normalizeFieldBorderStyle(payload: {
       borderWidth: DEFAULT_INPUT_BORDER_WIDTH,
       borderColor: DEFAULT_INPUT_BORDER_COLOR,
     },
-    "field"
+    MessageComponentTypeValue.Field
   );
 }
 
@@ -188,7 +197,7 @@ function normalizeFieldTextConfiguration(payload: {
       maxLines: DEFAULT_TEXT_MAX_LINES,
       fontSize: DEFAULT_FIELD_FONT_SIZE,
     },
-    "field",
+    MessageComponentTypeValue.Field,
     "textColor"
   );
 }
@@ -197,14 +206,34 @@ export function normalizeInput(component: MessageInputPayload): MessageInputMode
   // Without `mapsTo` the field has no profile target, so drop it instead of rendering an input that leads nowhere.
   const mapsTo = typeof component.mapsTo === "string" ? component.mapsTo.trim() : "";
   if (mapsTo.length === 0) {
-    Log.warn(RENDER_LOG_MODULE, `[normalizer] ignored field "${component.id}": missing "mapsTo"`);
-    return null;
+    return dropComponent(MessageComponentTypeValue.Field, component.id, 'missing "mapsTo"');
   }
 
   // `$honeypot` is reserved for the anti-bot decoy: a real field on that key would route every genuine submit to the bot topic.
   if (mapsTo === RENDER_MAPS_TO_HONEYPOT) {
-    Log.warn(RENDER_LOG_MODULE, `[normalizer] ignored field "${component.id}": "${RENDER_MAPS_TO_HONEYPOT}" is reserved`);
-    return null;
+    return dropComponent(MessageComponentTypeValue.Field, component.id, `"${RENDER_MAPS_TO_HONEYPOT}" is reserved`);
+  }
+
+  const inputType = normalizeEnum(component.fieldType, MessageInputTypeValue, DEFAULT_INPUT_TYPE, "fieldType", "field.fieldType");
+  const word = normalizeEnum(
+    component.attributeType,
+    MessageAttributeTypeValue,
+    MessageAttributeTypeValue.String,
+    "attributeType",
+    "field.attributeType"
+  );
+  const attributeType = PROFILE_ATTRIBUTE_TYPES[word];
+  if (!isInputAttributeType(attributeType)) {
+    return dropComponent(MessageComponentTypeValue.Field, component.id, `a field cannot write a ${word}`);
+  }
+  const isString = attributeType === ProfileAttributeType.STRING;
+  if (!isString) {
+    if (inputType !== MessageInputTypeValue.Text) {
+      return dropComponent(MessageComponentTypeValue.Field, component.id, `a ${inputType} field cannot write a ${word}`);
+    }
+    if (mapsTo.charAt(0) === "$") {
+      return dropComponent(MessageComponentTypeValue.Field, component.id, "a native attribute holds a string");
+    }
   }
 
   const textConfiguration = normalizeFieldTextConfiguration(component);
@@ -215,25 +244,26 @@ export function normalizeInput(component: MessageInputPayload): MessageInputMode
     Log.debug(RENDER_LOG_MODULE, `[normalizer] ignored "field.hideOn": not supported on fields`);
   }
 
-  const minMax = normalizeMinMax(component.minMax);
+  // A length bound on a number, a date or a url would count its characters instead of bounding its value.
+  if (!isString && component.minMax !== undefined) {
+    Log.debug(RENDER_LOG_MODULE, `[normalizer] ignored "field.minMax": not applicable to a ${word} field`);
+  }
+  const minMax = isString ? normalizeBoundsPair(component.minMax, "field.minMax") : {};
 
   return {
-    type: "field",
+    type: MessageComponentTypeValue.Field,
     id: component.id,
     mapsTo,
     required: validatable.required,
     validation: validatable.validation,
     configuration: {
-      inputType: normalizeEnum(component.fieldType, MessageInputTypeValue, DEFAULT_INPUT_TYPE, "fieldType", "field.fieldType"),
+      inputType,
+      attributeType,
       placeholderId:
         typeof component.placeholderId === "string" && component.placeholderId.length > 0 ? component.placeholderId : undefined,
-      labelTextId: typeof component.labelTextId === "string" && component.labelTextId.length > 0 ? component.labelTextId : undefined,
-      labelVisible: component.labelVisible !== false,
-      minLength: minMax.minLength,
-      maxLength: minMax.maxLength,
-      labelFontSize: normalizeOptionalPositiveNumber(component.labelFontSize, "field.labelFontSize") ?? DEFAULT_FIELD_LABEL_FONT_SIZE,
-      labelFontSizeDesktop: normalizeOptionalPositiveNumber(component.labelFontSizeDesktop, "field.labelFontSizeDesktop"),
-      labelColor: normalizeColor(component.labelColor ?? component.textColor, DEFAULT_FALLBACK_COLOR, "field.labelColor"),
+      ...normalizeFieldLabel(component, MessageComponentTypeValue.Field, component.textColor),
+      minLength: minMax.min,
+      maxLength: minMax.max,
       placeholderColor: normalizeOptionalColor(component.placeholderColor, "field.placeholderColor"),
       width: normalizeFieldWidth(component.width, "field.width"),
       align: normalizeHorizontalAlignment(component.align, DEFAULT_HORIZONTAL_ALIGN, "field.align"),
@@ -248,25 +278,5 @@ export function normalizeInput(component: MessageInputPayload): MessageInputMode
         paddingDesktop: normalizeOptionalBox(component.paddingDesktop, true, "field.paddingDesktop"),
       },
     },
-  };
-}
-
-function normalizeMinMax(value: number[] | undefined): { minLength?: number; maxLength?: number } {
-  if (value === undefined) {
-    return {};
-  }
-  if (!Array.isArray(value) || value.length !== 2 || value.some(v => typeof v !== "number" || !Number.isFinite(v) || v < 0)) {
-    Log.debug(RENDER_LOG_MODULE, `[normalizer] ignored "field.minMax": invalid pair ${JSON.stringify(value)}`);
-    return {};
-  }
-  const min = Math.floor(value[0]);
-  const max = Math.floor(value[1]);
-  if (max > 0 && min > max) {
-    Log.debug(RENDER_LOG_MODULE, `[normalizer] ignored "field.minMax": min ${min} exceeds max ${max}`);
-    return {};
-  }
-  return {
-    minLength: min > 0 ? min : undefined,
-    maxLength: max > 0 ? max : undefined,
   };
 }

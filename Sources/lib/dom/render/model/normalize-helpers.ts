@@ -2,9 +2,10 @@ import { RENDER_LOG_MODULE } from "com.batch.dom/render/render-constants";
 import { Log } from "com.batch.shared/logger";
 
 import {
-  MessageAnyComponentModel,
+  MessageComponentModel,
   MessageBorderStyle,
   MessageBox,
+  MessageFieldLabel,
   MessageFontDecoration,
   MessageHeightType,
   MessageHeightValue,
@@ -13,11 +14,14 @@ import {
   MessageWidthType,
   MessageWidthValue,
 } from "./model";
+import { DEFAULT_FALLBACK_COLOR, DEFAULT_FIELD_LABEL_FONT_SIZE } from "./normalizer-defaults";
 import {
-  MessageAnyComponentPayload,
+  MessageComponentPayload,
   MessageAspectRatio,
   MessageAspectRatioValue,
   MessageColor,
+  MessageComponentType,
+  MessageFieldLabelPayload,
   MessageHideOn,
   MessageHideOnValue,
   MessageHorizontalAlignment,
@@ -166,15 +170,54 @@ export function normalizeTextConfiguration(
   };
 }
 
+/** `labelColor` falls back to the component's own text color before the generic fallback. */
+export function normalizeFieldLabel(
+  options: MessageFieldLabelPayload,
+  component: MessageComponentType,
+  inheritedColor?: MessageColor
+): MessageFieldLabel {
+  return {
+    labelTextId: typeof options.labelTextId === "string" && options.labelTextId.length > 0 ? options.labelTextId : undefined,
+    labelVisible: options.labelVisible !== false,
+    labelFontSize: normalizeOptionalPositiveNumber(options.labelFontSize, `${component}.labelFontSize`) ?? DEFAULT_FIELD_LABEL_FONT_SIZE,
+    labelFontSizeDesktop: normalizeOptionalPositiveNumber(options.labelFontSizeDesktop, `${component}.labelFontSizeDesktop`),
+    labelColor: normalizeColor(options.labelColor ?? inheritedColor, DEFAULT_FALLBACK_COLOR, `${component}.labelColor`),
+  };
+}
+
+/** Warns and drops a component the payload cannot render. */
+export function dropComponent(kind: MessageComponentType, id: string, reason: string): null {
+  Log.warn(RENDER_LOG_MODULE, `[normalizer] ignored ${kind} "${id}": ${reason}`);
+  return null;
+}
+
+/** `0` means "no constraint" on either bound, and an incoherent pair is dropped whole. */
+export function normalizeBoundsPair(value: number[] | undefined, field: string): { min?: number; max?: number } {
+  if (value === undefined) {
+    return {};
+  }
+  if (!Array.isArray(value) || value.length !== 2 || value.some(v => typeof v !== "number" || !Number.isFinite(v) || v < 0)) {
+    Log.debug(RENDER_LOG_MODULE, `[normalizer] ignored "${field}": invalid pair ${JSON.stringify(value)}`);
+    return {};
+  }
+  const min = Math.floor(value[0]);
+  const max = Math.floor(value[1]);
+  if (max > 0 && min > max) {
+    Log.debug(RENDER_LOG_MODULE, `[normalizer] ignored "${field}": min ${min} exceeds max ${max}`);
+    return {};
+  }
+  return { min: min > 0 ? min : undefined, max: max > 0 ? max : undefined };
+}
+
 /** Normalizes children keeping positional slots: the columns ratio list is index-aligned with its children. */
 export function normalizeChildren(
   children: unknown,
-  normalizeChild: (component: MessageAnyComponentPayload) => MessageAnyComponentModel | null
-): (MessageAnyComponentModel | null)[] {
+  normalizeChild: (component: MessageComponentPayload) => MessageComponentModel | null
+): (MessageComponentModel | null)[] {
   if (!Array.isArray(children)) {
     return [];
   }
-  return children.map(child => (child !== null && typeof child === "object" ? normalizeChild(child as MessageAnyComponentPayload) : null));
+  return children.map(child => (child !== null && typeof child === "object" ? normalizeChild(child as MessageComponentPayload) : null));
 }
 
 export function normalizeRatios(ratios: number[] | undefined, count: number): number[] {

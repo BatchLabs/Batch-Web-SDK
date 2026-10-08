@@ -14,6 +14,7 @@ export enum ProfileAttributeType {
 export enum ProfileNativeAttributeType {
   EMAIL = "email",
   EMAIL_MARKETING = "email_marketing",
+  PHONE_NUMBER = "phone_number",
   LANGUAGE = "language",
   REGION = "region",
   DEVICE_LANGUAGE = "device_language",
@@ -22,6 +23,8 @@ export enum ProfileNativeAttributeType {
 }
 
 export type PartialUpdateArrayObject = { $add?: Set<string>; $remove?: Set<string> };
+/** JSON form of `PartialUpdateArrayObject`, as `_PROFILE_DATA_CHANGED` and `_FORM_SUBMITTED` carry it. */
+export type PartialUpdateObject = { $add?: Array<string>; $remove?: Array<string> };
 export function isPartialUpdateArrayObject(value: unknown): value is PartialUpdateArrayObject {
   return value instanceof Object && !Array.isArray(value) && !isSet(value) && value !== null;
 }

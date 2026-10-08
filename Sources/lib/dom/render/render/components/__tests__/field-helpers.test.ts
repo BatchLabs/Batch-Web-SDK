@@ -6,6 +6,7 @@ import { createErrorNode, createFieldWrapper, registerField } from "com.batch.do
 import type { FormFieldHandle } from "com.batch.dom/render/render/field-protocol";
 import type { MessageFormController } from "com.batch.dom/render/runtime/form-controller";
 import { componentMessage } from "com.batch.dom/render/test-utils/prop-matrix";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 const FIELD_ID = "email";
 const FIELD_MAP_TO = "email_map";
@@ -28,7 +29,6 @@ interface SetupOptions {
   validation?: MessageValidationModel;
   minLength?: number;
   invalidTextKey?: string;
-  detached?: boolean;
 }
 
 interface Registered {
@@ -38,7 +38,10 @@ interface Registered {
   errorNode: HTMLElement;
 }
 
-function register(options: SetupOptions = {}): Registered {
+/** `registerField` options the setup shortcut does not model, passed through as is. */
+type RegisterOverrides = Partial<Parameters<typeof registerField>[0]>;
+
+function register(options: SetupOptions = {}, overrides: RegisterOverrides = {}): Registered {
   const message = normalizeMessage(componentMessage({ type: "field", id: FIELD_ID, mapsTo: FIELD_MAP_TO }, { texts: options.texts ?? {} }));
   const captured: FormFieldHandle[] = [];
   const controller = { register: (handle: FormFieldHandle) => captured.push(handle) } as unknown as MessageFormController;
@@ -46,9 +49,7 @@ function register(options: SetupOptions = {}): Registered {
   const wrapper = createFieldWrapper("input");
   const control = document.createElement("input");
   const errorNode = createErrorNode(DOM_ID);
-  if (!options.detached) {
-    wrapper.appendChild(control);
-  }
+  wrapper.appendChild(control);
   wrapper.appendChild(errorNode);
 
   registerField({
@@ -57,36 +58,38 @@ function register(options: SetupOptions = {}): Registered {
     id: FIELD_ID,
     mapsTo: FIELD_MAP_TO,
     required: options.required ?? false,
-    validation: options.validation,
+    regexes: options.validation?.regex !== undefined ? [options.validation.regex] : undefined,
+    errorTextId: options.validation?.errorId,
     minLength: options.minLength,
     invalidTextKey: options.invalidTextKey,
     control,
     element: wrapper,
     errorNode,
     errorClass: ERROR_CLASS,
-    getValue: () => control.value,
+    getValue: () => ({ type: ProfileAttributeType.STRING, value: control.value }),
+    ...overrides,
   });
 
   return { handle: captured[0], control, wrapper, errorNode };
 }
 
-function validateWith(value: string, options: SetupOptions = {}): string | null {
-  const { handle, control } = register(options);
+function validateWith(value: string, options: SetupOptions = {}, overrides: RegisterOverrides = {}): string | null {
+  const { handle, control } = register(options, overrides);
   control.value = value;
   return handle.validate();
 }
 
 describe("createFieldWrapper", () => {
-  test("carries the shared field class plus the per-type modifier and stacks its children", () => {
+  test("carries the shared field class plus the per-type modifier", () => {
     const wrapper = createFieldWrapper("input");
     expect(wrapper.tagName).toBe("DIV");
     expect(wrapper.className).toBe("iam-field iam-field-input");
-    expect(wrapper.style.display).toBe("flex");
-    expect(wrapper.style.flexDirection).toBe("column");
   });
 
-  test("the modifier is the only variable part of the class list", () => {
-    expect(createFieldWrapper("checkbox").className).toBe("iam-field iam-field-checkbox");
+  test("wraps a group in a fieldset when asked, keeping the same class list", () => {
+    const wrapper = createFieldWrapper("choice", "fieldset");
+    expect(wrapper.tagName).toBe("FIELDSET");
+    expect(wrapper.className).toBe("iam-field iam-field-choice");
   });
 });
 
@@ -108,12 +111,7 @@ describe("registerField", () => {
     control.value = "typed";
     expect(handle.id).toBe(FIELD_ID);
     expect(handle.element).toBe(wrapper);
-    expect(handle.getValue()).toBe("typed");
-  });
-
-  test("aria-required is stamped for a required field only", () => {
-    expect(register({ required: true }).control.getAttribute("aria-required")).toBe("true");
-    expect(register({ required: false }).control.hasAttribute("aria-required")).toBe(false);
+    expect(handle.getValue()).toEqual({ type: ProfileAttributeType.STRING, value: "typed" });
   });
 });
 
@@ -153,6 +151,38 @@ describe("field validation rules", () => {
 
   test("a value matching the format is still rejected when it is too short", () => {
     expect(validateWith("ab", { minLength: 4, validation: { regex: "^[a-z]+$" } })).toBe(DEFAULT_INVALID_MESSAGE);
+  });
+
+  test("maxLength rejects strictly longer values and accepts the bound itself", () => {
+    expect(validateWith("abcde", {}, { maxLength: 5 })).toBeNull();
+    expect(validateWith("abcdef", {}, { maxLength: 5 })).toBe(DEFAULT_INVALID_MESSAGE);
+  });
+
+  test("the kind has the last word on a non-empty value that every pattern accepted", () => {
+    const accepts = jest.fn((_text: string) => false);
+    expect(validateWith("abc", {}, { accepts })).toBe(DEFAULT_INVALID_MESSAGE);
+    expect(accepts).toHaveBeenCalledWith("abc");
+
+    accepts.mockClear();
+    expect(validateWith("", {}, { accepts })).toBeNull();
+    expect(accepts).not.toHaveBeenCalled();
+  });
+
+  test("without validatedText a typed value validates as empty", () => {
+    const typed = { getValue: () => ({ type: ProfileAttributeType.INTEGER, value: 3 }) } satisfies RegisterOverrides;
+    expect(validateWith("3", { required: true }, typed)).toBe(DEFAULT_REQUIRED_MESSAGE);
+    expect(validateWith("3", { required: true }, { ...typed, validatedText: () => "3" })).toBeNull();
+  });
+
+  test("a control holding nothing validates as empty, never throws", () => {
+    const empty = { getValue: () => null } satisfies RegisterOverrides;
+    expect(register({ required: true }, empty).handle.validate()).toBe(DEFAULT_REQUIRED_MESSAGE);
+    expect(register({ required: false }, empty).handle.validate()).toBeNull();
+  });
+
+  test("a malformed pattern is skipped, never fatal", () => {
+    expect(validateWith("abc", {}, { regexes: ["(["] })).toBeNull();
+    expect(validateWith("abc", {}, { regexes: ["([", "^[0-9]+$"] })).toBe(DEFAULT_INVALID_MESSAGE);
   });
 });
 
@@ -296,18 +326,22 @@ describe("field rejection signal", () => {
     expect(control.classList.contains(SHAKE_CLASS)).toBe(false);
   });
 
-  test("a control with no field ancestor shakes itself", () => {
-    const { handle, control } = register({ detached: true });
-    handle.signalInvalid();
-
-    expect(control.classList.contains(SHAKE_CLASS)).toBe(true);
-  });
-
   test("signalling twice in a row leaves the class applied so the animation can restart", () => {
     const { handle, wrapper } = register();
     handle.signalInvalid();
     handle.signalInvalid();
 
     expect(wrapper.classList.contains(SHAKE_CLASS)).toBe(true);
+  });
+
+  test("outside a field wrapper the shake lands on the element itself", () => {
+    const bare = document.createElement("div");
+    const { handle, wrapper } = register({}, { element: bare });
+
+    handle.signalInvalid();
+
+    expect(handle.element).toBe(bare);
+    expect(bare.classList.contains(SHAKE_CLASS)).toBe(true);
+    expect(wrapper.classList.contains(SHAKE_CLASS)).toBe(false);
   });
 });

@@ -29,7 +29,6 @@
     "demo/static/",
     "demo-staging/",
     "tests-e2e/__serving__/static/",
-    "debug-extension/",
     "public_repo_skeleton/",
     "resources/",
     ".claude/",

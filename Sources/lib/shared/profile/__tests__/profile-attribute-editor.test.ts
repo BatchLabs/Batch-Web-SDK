@@ -138,6 +138,18 @@ describe("Profile data editor", () => {
         { key: "nickname", operation: "SET_ATTRIBUTE", value: "42", type: ProfileAttributeType.STRING },
       ]);
     });
+
+    it("stores a set array lowercased, typed or not, merging members that differ only by case", () => {
+      const editor = new ProfileAttributeEditor(false);
+      editor
+        .setAttribute("sports", { type: ProfileAttributeType.ARRAY, value: ["Foot", "foot", "Golf"] })
+        .setAttribute("os", ["Linux", "linux"]);
+
+      expect(editor.getOperations()).toEqual([
+        { key: "sports", operation: "SET_ATTRIBUTE", value: new Set(["foot", "golf"]), type: ProfileAttributeType.ARRAY },
+        { key: "os", operation: "SET_ATTRIBUTE", value: new Set(["linux"]), type: ProfileAttributeType.ARRAY },
+      ]);
+    });
   });
   describe("Native attributes", () => {
     describe("Email", () => {

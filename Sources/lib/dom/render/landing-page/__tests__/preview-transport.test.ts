@@ -1,8 +1,10 @@
 /* eslint-env jest */
 
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import { WS_URL } from "../../../../../config";
+import type { LandingInputRequestBody } from "../input-contract";
 import { createLandingPreviewTransport, LandingPreviewTransportConfig } from "../preview-transport";
 
 const CONFIG: LandingPreviewTransportConfig = {
@@ -46,7 +48,12 @@ describe("createLandingPreviewTransport", () => {
   test("accepts a populated submit", async () => {
     const transport = createLandingPreviewTransport(CONFIG);
 
-    await expect(transport.submitFields({ email: "someone@batch.com", optin: true })).resolves.toEqual({ status: "accepted" });
+    await expect(
+      transport.submitFields({
+        email: { type: ProfileAttributeType.STRING, value: "someone@batch.com" },
+        optin: { type: ProfileAttributeType.BOOLEAN, value: true },
+      })
+    ).resolves.toEqual({ status: "accepted" });
   });
 
   test("swallows the engine analytics events", () => {
@@ -59,7 +66,7 @@ describe("createLandingPreviewTransport", () => {
   test("never reaches the network, on either flow", async () => {
     const transport = createLandingPreviewTransport(CONFIG);
 
-    await transport.submitFields({ email: "someone@batch.com" });
+    await transport.submitFields({ email: { type: ProfileAttributeType.STRING, value: "someone@batch.com" } });
     transport.emitEvent({ type: "displayed" });
     transport.emitEvent({ type: "clicked", ctaId: "cta-1", ctaType: "button" });
 
@@ -68,7 +75,9 @@ describe("createLandingPreviewTransport", () => {
   });
 
   test("logs the submit request it skipped", async () => {
-    await createLandingPreviewTransport(CONFIG).submitFields({ $email_address: "someone@batch.com" });
+    await createLandingPreviewTransport(CONFIG).submitFields({
+      $email_address: { type: ProfileAttributeType.STRING, value: "someone@batch.com" },
+    });
 
     expect(skippedRequests()).toEqual([
       [
@@ -83,6 +92,35 @@ describe("createLandingPreviewTransport", () => {
               params: { ed: CONFIG.eventData, email: "someone@batch.com" },
             },
           ],
+        },
+      ],
+    ]);
+  });
+
+  test("preview mints a new event id per submit: nothing to dedupe server-side", async () => {
+    const transport = createLandingPreviewTransport(CONFIG);
+
+    await transport.submitFields({ email: { type: ProfileAttributeType.STRING, value: "someone@batch.com" } });
+    await transport.submitFields({ email: { type: ProfileAttributeType.STRING, value: "someone@batch.com" } });
+
+    // The logged payloads are the bodies the transport built; `Log.public` only widened them to `unknown`.
+    const bodies = skippedRequests().map(call => call[1]) as LandingInputRequestBody[];
+    const ids = bodies.map(body => body.events[0].id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  test("preview applies the wire rules: a refused value is missing from the logged body", async () => {
+    await expect(
+      createLandingPreviewTransport(CONFIG).submitFields({ bad: { type: ProfileAttributeType.STRING, value: "" } })
+    ).resolves.toEqual({ status: "accepted" });
+
+    expect(skippedRequests()).toEqual([
+      [
+        SKIPPED_POST,
+        {
+          session_id: expect.any(String),
+          events: [{ id: expect.any(String), name: "_FORM_SUBMITTED", date: expect.any(String), params: { ed: CONFIG.eventData } }],
         },
       ],
     ]);
@@ -125,7 +163,7 @@ describe("createLandingPreviewTransport", () => {
     const transport = createLandingPreviewTransport(CONFIG);
 
     transport.emitEvent({ type: "displayed" });
-    await transport.submitFields({ email: "someone@batch.com" });
+    await transport.submitFields({ email: { type: ProfileAttributeType.STRING, value: "someone@batch.com" } });
 
     const sessionIds = skippedRequests().map(call => (call[1] as { session_id: string }).session_id);
     expect(sessionIds).toHaveLength(2);

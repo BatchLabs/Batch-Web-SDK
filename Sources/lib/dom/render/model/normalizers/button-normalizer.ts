@@ -21,7 +21,7 @@ import {
   DEFAULT_TEXT_MAX_LINES,
   DEFAULT_TRANSPARENT_COLOR,
 } from "../normalizer-defaults";
-import { MessageButtonPayload } from "../types";
+import { MessageButtonPayload, MessageComponentTypeValue } from "../types";
 
 export function normalizeButton(component: MessageButtonPayload): MessageButtonModel {
   const textConfiguration = normalizeTextConfiguration(
@@ -39,12 +39,12 @@ export function normalizeButton(component: MessageButtonPayload): MessageButtonM
       maxLines: DEFAULT_TEXT_MAX_LINES,
       fontSize: DEFAULT_FONT_SIZE,
     },
-    "button",
+    MessageComponentTypeValue.Button,
     "textColor"
   );
 
   return {
-    type: "button",
+    type: MessageComponentTypeValue.Button,
     id: component.id,
     hideOn: normalizeHideOn(component.hideOn, "button.hideOn"),
     configuration: {
@@ -64,7 +64,7 @@ export function normalizeButton(component: MessageButtonPayload): MessageButtonM
             borderWidth: DEFAULT_BUTTON_BORDER_WIDTH,
             borderColor: DEFAULT_TRANSPARENT_COLOR,
           },
-          "button"
+          MessageComponentTypeValue.Button
         ),
         ...textConfiguration.style,
       },

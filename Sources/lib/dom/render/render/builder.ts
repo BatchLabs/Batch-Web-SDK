@@ -1,7 +1,9 @@
 import type { ActionContext, ActionOutcome } from "com.batch.dom/render/contracts";
-import type { MessageAnyComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import type { MessageComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import { MessageComponentTypeValue } from "com.batch.dom/render/model/types";
 
 import { renderButton, renderSubmitButton } from "./components/button";
+import { renderChoice } from "./components/choice";
 import { renderColumns } from "./components/columns";
 import { renderDivider } from "./components/divider";
 import { renderImage } from "./components/image";
@@ -40,7 +42,7 @@ export function buildComponentTree(
 }
 
 function renderComponent(
-  component: MessageAnyComponentModel,
+  component: MessageComponentModel,
   message: MessageModel,
   onAction: ActionHandler,
   context?: FormRenderContext
@@ -53,15 +55,15 @@ function renderComponent(
 }
 
 function renderComponentElement(
-  component: MessageAnyComponentModel,
+  component: MessageComponentModel,
   message: MessageModel,
   onAction: ActionHandler,
   context?: FormRenderContext
 ): HTMLElement | null {
   switch (component.type) {
-    case "text":
+    case MessageComponentTypeValue.Text:
       return renderLabel(component, message);
-    case "button": {
+    case MessageComponentTypeValue.Button: {
       const form = context?.form;
       if (form && component.id === context.submitId) {
         const el = renderSubmitButton(component, message, () => {
@@ -77,16 +79,18 @@ function renderComponentElement(
       }
       return renderButton(component, message, onAction);
     }
-    case "image":
+    case MessageComponentTypeValue.Image:
       return renderImage(component, message, onAction);
-    case "divider":
+    case MessageComponentTypeValue.Divider:
       return renderDivider(component);
-    case "spacer":
+    case MessageComponentTypeValue.Spacer:
       return renderSpacer(component);
-    case "columns":
+    case MessageComponentTypeValue.Columns:
       return renderColumns(component, child => renderComponent(child, message, onAction, context));
-    case "field":
+    case MessageComponentTypeValue.Field:
       return context ? renderInput(component, message, context) : null;
+    case MessageComponentTypeValue.Choice:
+      return context ? renderChoice(component, message, context) : null;
     default:
       return null;
   }

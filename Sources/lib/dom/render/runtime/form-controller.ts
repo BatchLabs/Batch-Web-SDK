@@ -1,4 +1,4 @@
-import type { ActionOutcome } from "com.batch.dom/render/contracts";
+import type { ActionOutcome, FormFieldValue } from "com.batch.dom/render/contracts";
 import type { MessageModel } from "com.batch.dom/render/model/model";
 import {
   RENDER_LOG_MODULE,
@@ -6,18 +6,36 @@ import {
   RENDER_TEXT_KEY_FORM_SUBMIT_ERROR,
 } from "com.batch.dom/render/render-constants";
 import { resolveMessageText } from "com.batch.dom/render/render/component-helpers";
-import type { FormFieldHandle, MessageFieldValue } from "com.batch.dom/render/render/field-protocol";
+import type { FormFieldHandle } from "com.batch.dom/render/render/field-protocol";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 const DEFAULT_SUBMIT_ERROR_MESSAGE = "Something went wrong. Please try again.";
 const DEFAULT_NETWORK_ERROR_MESSAGE = "We couldn't reach the server. Please try again.";
 
-export type { FormFieldHandle, MessageFieldValue } from "com.batch.dom/render/render/field-protocol";
+export type { FormFieldHandle } from "com.batch.dom/render/render/field-protocol";
 
 interface FieldEntry {
   handle: FormFieldHandle;
   error: string | null;
   touched: boolean;
+}
+
+/** `undefined` when the value carries nothing: a blank string, or a partial update with two empty branches. `false` is information and lands. */
+function collectableValue(value: FormFieldValue | null): FormFieldValue | undefined {
+  if (value === null) {
+    return undefined;
+  }
+  switch (value.type) {
+    case ProfileAttributeType.STRING: {
+      const trimmed = value.value.trim();
+      return trimmed.length > 0 ? { type: ProfileAttributeType.STRING, value: trimmed } : undefined;
+    }
+    case ProfileAttributeType.ARRAY:
+      return (value.value.$add?.length ?? 0) + (value.value.$remove?.length ?? 0) > 0 ? value : undefined;
+    default:
+      return value;
+  }
 }
 
 /** DOM-facing feedback hooks the rendered surface implements for the form controller. */
@@ -30,7 +48,7 @@ export interface FormSubmitRuntime {
 }
 
 /** Resolves the submit CTA outside the engine with the collected field values. */
-export type FormSubmitResolver = (fields: Record<string, MessageFieldValue>) => Promise<ActionOutcome>;
+export type FormSubmitResolver = (fields: Record<string, FormFieldValue>) => Promise<ActionOutcome>;
 
 /** Holds the live state of the fields collected across the rendered tree. Validation shows errors only from the submit. */
 export class MessageFormController {
@@ -49,7 +67,7 @@ export class MessageFormController {
 
   public register(handle: FormFieldHandle): void {
     if (this.byId.has(handle.id)) {
-      Log.warn(RENDER_LOG_MODULE, `[form] duplicate field id "${handle.id}": the last value wins on submit`);
+      Log.warn(RENDER_LOG_MODULE, `[form] duplicate field id "${handle.id}": errors and input events reach the last one only`);
     }
     const entry: FieldEntry = { handle, error: null, touched: false };
     this.entries.push(entry);
@@ -96,18 +114,21 @@ export class MessageFormController {
     return valid;
   }
 
-  /** Collects the trimmed non-empty field values, keyed by each field's `mapsTo` payload key. */
-  public collectAttributes(): Record<string, MessageFieldValue> {
-    return this.entries.reduce<Record<string, MessageFieldValue>>((acc, entry) => {
-      const trimmed = entry.handle.getValue().trim();
-      if (trimmed.length === 0) {
+  public collectAttributes(): Record<string, FormFieldValue> {
+    return this.entries.reduce<Record<string, FormFieldValue>>((acc, entry) => {
+      const mapsTo = entry.handle.mapsTo;
+      if (mapsTo === undefined || mapsTo.length === 0) {
         return acc;
       }
-      if (Object.prototype.hasOwnProperty.call(acc, entry.handle.mapsTo)) {
-        Log.warn(RENDER_LOG_MODULE, `[form] dropped field "${entry.handle.id}": duplicate mapsTo "${entry.handle.mapsTo}"`);
+      const collected = collectableValue(entry.handle.getValue());
+      if (collected === undefined) {
         return acc;
       }
-      acc[entry.handle.mapsTo] = trimmed;
+      if (Object.prototype.hasOwnProperty.call(acc, mapsTo)) {
+        Log.warn(RENDER_LOG_MODULE, `[form] dropped field "${entry.handle.id}": duplicate mapsTo "${mapsTo}"`);
+        return acc;
+      }
+      acc[mapsTo] = collected;
       return acc;
     }, {});
   }

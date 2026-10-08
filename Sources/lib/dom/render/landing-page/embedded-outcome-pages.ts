@@ -1,5 +1,5 @@
 import type { MessageColor, MessagePayload } from "com.batch.dom/render/model/types";
-import { MessageFormatValue } from "com.batch.dom/render/model/types";
+import { MessageComponentTypeValue, MessageFormatValue } from "com.batch.dom/render/model/types";
 
 import type { LandingPageLang } from "./landing-page-l10n";
 import { LANDING_ERROR_PAGE_TEXTS } from "./landing-page-l10n";
@@ -21,9 +21,9 @@ export function makeEmbeddedErrorPayload(lang: LandingPageLang): MessagePayload 
       borderWidth: 1,
       borderColor: ["#e3e7ecff", "#2c343cff"],
       children: [
-        { type: "spacer", height: "36px" },
+        { type: MessageComponentTypeValue.Spacer, height: "36px" },
         {
-          type: "divider",
+          type: MessageComponentTypeValue.Divider,
           color: ERROR_ACCENT,
           thickness: 4,
           width: "56px",
@@ -31,7 +31,7 @@ export function makeEmbeddedErrorPayload(lang: LandingPageLang): MessagePayload 
           margin: [0, 0, 24, 0],
         },
         {
-          type: "text",
+          type: MessageComponentTypeValue.Text,
           id: "title",
           fontSize: 22,
           fontSizeDesktop: 26,
@@ -41,7 +41,7 @@ export function makeEmbeddedErrorPayload(lang: LandingPageLang): MessagePayload 
           margin: [0, 24, 8, 24],
         },
         {
-          type: "text",
+          type: MessageComponentTypeValue.Text,
           id: "message",
           fontSize: 15,
           fontSizeDesktop: 16,
@@ -49,7 +49,7 @@ export function makeEmbeddedErrorPayload(lang: LandingPageLang): MessagePayload 
           color: ["#5c6672ff", "#a8b2bcff"],
           margin: [0, 24, 0, 24],
         },
-        { type: "spacer", height: "36px" },
+        { type: MessageComponentTypeValue.Spacer, height: "36px" },
       ],
     },
     texts: { title: texts.title, message: texts.message },

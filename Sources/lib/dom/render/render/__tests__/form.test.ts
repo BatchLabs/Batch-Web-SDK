@@ -1,13 +1,20 @@
 /* eslint-env jest */
 
 import type { ActionOutcome } from "com.batch.dom/render/contracts";
-import type { MessageAnyComponentModel, MessageButtonModel, MessageInputModel, MessageModel } from "com.batch.dom/render/model/model";
+import type {
+  MessageComponentModel,
+  MessageButtonModel,
+  MessageChoiceModel,
+  MessageInputModel,
+  MessageModel,
+} from "com.batch.dom/render/model/model";
 import { buildComponentTree } from "com.batch.dom/render/render/builder";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 const SUBMIT_REF = "submit";
 
-function makeMessage(children: MessageAnyComponentModel[], actions: MessageModel["actions"] = {}): MessageModel {
+function makeMessage(children: MessageComponentModel[], actions: MessageModel["actions"] = {}): MessageModel {
   return {
     format: "modal",
     position: "center",
@@ -34,6 +41,7 @@ function makeInput(id: string, required = false, mapsTo = `${id}_map`): MessageI
     required,
     configuration: {
       inputType: "text",
+      attributeType: ProfileAttributeType.STRING,
       labelVisible: true,
       labelFontSize: 14,
       labelColor: ["#000000FF"],
@@ -76,7 +84,7 @@ function makeButton(id: string): MessageButtonModel {
   };
 }
 
-function makeColumn(children: (MessageAnyComponentModel | null)[]): MessageAnyComponentModel {
+function makeColumn(children: (MessageComponentModel | null)[]): MessageComponentModel {
   return {
     type: "columns",
     configuration: {
@@ -468,7 +476,11 @@ describe("form assembly via buildComponentTree (no form container)", () => {
     (root.querySelector(".iam-button") as HTMLButtonElement).click();
     await flush();
     expect(onAction).toHaveBeenCalledWith("submit", {
-      formFields: { firstname_map: "filled", lastname_map: "filled", email_map: "filled" },
+      formFields: {
+        firstname_map: { type: ProfileAttributeType.STRING, value: "filled" },
+        lastname_map: { type: ProfileAttributeType.STRING, value: "filled" },
+        email_map: { type: ProfileAttributeType.STRING, value: "filled" },
+      },
     });
   });
 
@@ -553,10 +565,10 @@ describe("form assembly via buildComponentTree (no form container)", () => {
     await flush();
 
     expect(onAction.mock.calls).toEqual([
-      ["submit", { formClick: { values: { email_map: "user@batch.com" } } }],
-      ["submit", { formFields: { email_map: "user@batch.com" } }],
-      ["submit", { formClick: { values: { email_map: "user@batch.com" } } }],
-      ["submit", { formFields: { email_map: "user@batch.com" } }],
+      ["submit", { formClick: { values: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } } }],
+      ["submit", { formFields: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } }],
+      ["submit", { formClick: { values: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } } }],
+      ["submit", { formFields: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } }],
     ]);
   });
 
@@ -581,10 +593,10 @@ describe("form assembly via buildComponentTree (no form container)", () => {
     await flush();
 
     expect(onAction.mock.calls).toEqual([
-      ["submit", { formClick: { values: { email_map: "user@batch.com" } } }],
-      ["submit", { formFields: { email_map: "user@batch.com" } }],
-      ["submit", { formClick: { values: { email_map: "user@batch.com" } } }],
-      ["submit", { formFields: { email_map: "user@batch.com" } }],
+      ["submit", { formClick: { values: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } } }],
+      ["submit", { formFields: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } }],
+      ["submit", { formClick: { values: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } } }],
+      ["submit", { formFields: { email_map: { type: ProfileAttributeType.STRING, value: "user@batch.com" } } }],
     ]);
   });
 
@@ -693,6 +705,113 @@ describe("form assembly via buildComponentTree (no form container)", () => {
   });
 });
 
+describe("form submit with choices", () => {
+  const OPTIONS = [
+    { id: "tennis_label", attributeValue: "tennis", selected: false },
+    { id: "golf_label", attributeValue: "golf", selected: false },
+    { id: "padel_label", attributeValue: "padel", selected: false },
+  ];
+
+  function makeChoice(
+    id: string,
+    choiceType: "checkbox" | "radio",
+    attributeType: MessageChoiceModel["configuration"]["attributeType"],
+    values: MessageChoiceModel["configuration"]["values"],
+    extra: Partial<MessageChoiceModel["configuration"]> = {},
+    required = false
+  ): MessageChoiceModel {
+    return {
+      type: "choice",
+      id,
+      mapsTo: id,
+      required,
+      configuration: {
+        choiceType,
+        attributeType,
+        values,
+        layout: "vertical",
+        align: "left",
+        spacing: 8,
+        labelVisible: true,
+        labelFontSize: 14,
+        labelColor: ["#000000FF"],
+        checkedColor: ["#C7C7CCFF"],
+        borderColor: ["#C7C7CCFF"],
+        textColor: ["#000000FF"],
+        fontStyle: { fontSize: 16, fontDecoration: [] },
+        placement: { margin: [0, 0, 0, 0] },
+        ...extra,
+      },
+    };
+  }
+
+  const inputsOf = (root: HTMLElement, id: string): HTMLInputElement[] =>
+    Array.from(root.querySelectorAll<HTMLInputElement>(`input[name="${id}"]`));
+
+  const check = (input: HTMLInputElement): void => {
+    input.checked = true;
+    input.dispatchEvent(new Event("change"));
+  };
+
+  test("a page of choices submits one value per form, in payload order and whatever the click order", async () => {
+    const onAction = makeAction();
+    const message = makeMessage([
+      makeChoice(
+        "fav_sport",
+        "radio",
+        ProfileAttributeType.STRING,
+        OPTIONS.map((option, i) => ({ ...option, selected: i === 1 }))
+      ),
+      makeChoice("newsletter", "checkbox", ProfileAttributeType.BOOLEAN, [OPTIONS[0]], {}, true),
+      makeChoice("sports", "checkbox", ProfileAttributeType.ARRAY, OPTIONS, { maxSelected: 2 }),
+      makeButton("submit"),
+    ]);
+    const root = buildComponentTree(message, onAction);
+    // jsdom only moves the focus inside a connected tree.
+    document.body.replaceChildren(root);
+    const submit = root.querySelector(".iam-button") as HTMLButtonElement;
+
+    submit.click();
+    await flush();
+    expect(submitCalls(onAction)).toHaveLength(0);
+    const consent = inputsOf(root, "newsletter")[0];
+    expect(consent.closest(".iam-field")?.querySelector(".iam-field-error")?.textContent).toBe("This field is required.");
+    expect(document.activeElement).toBe(consent);
+
+    check(consent);
+    const sports = inputsOf(root, "sports");
+    check(sports[2]);
+    check(sports[0]);
+    expect(sports[1].disabled).toBe(true);
+
+    submit.click();
+    await flush();
+    expect(onAction).toHaveBeenCalledWith("submit", {
+      formFields: {
+        fav_sport: { type: ProfileAttributeType.STRING, value: "golf" },
+        newsletter: { type: ProfileAttributeType.BOOLEAN, value: true },
+        sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis", "padel"], $remove: ["golf"] } },
+      },
+    });
+  });
+
+  test("a server error keyed by the choice id lands on the group", async () => {
+    const onAction = jest.fn(() =>
+      Promise.resolve<ActionOutcome>({ kind: "form-feedback", status: "error", fieldErrors: { sports: "Trop de sports" } })
+    );
+    const message = makeMessage([makeChoice("sports", "checkbox", ProfileAttributeType.ARRAY, OPTIONS), makeButton("submit")]);
+    const root = buildComponentTree(message, onAction);
+
+    (root.querySelector(".iam-button") as HTMLButtonElement).click();
+    await flush();
+
+    const group = root.querySelector(".iam-field-choice") as HTMLElement;
+    expect(group.classList.contains("iam-choice--error")).toBe(true);
+    expect(group.getAttribute("aria-invalid")).toBe("true");
+    expect(group.querySelector(".iam-field-error")?.textContent).toBe("Trop de sports");
+  });
+});
+
 describe("anti-bot decoy field", () => {
   const DECOY = "input.iam-decoy";
 
@@ -747,7 +866,12 @@ describe("anti-bot decoy field", () => {
     (root.querySelector(".iam-button") as HTMLButtonElement).click();
     await flush();
 
-    expect(submitCalls(onAction)[0][1]).toEqual({ formFields: { $honeypot: "bot", email_map: "someone@batch.com" } });
+    expect(submitCalls(onAction)[0][1]).toEqual({
+      formFields: {
+        $honeypot: { type: ProfileAttributeType.STRING, value: "bot" },
+        email_map: { type: ProfileAttributeType.STRING, value: "someone@batch.com" },
+      },
+    });
   });
 
   test("an untouched decoy contributes no key", async () => {
@@ -760,7 +884,9 @@ describe("anti-bot decoy field", () => {
     (root.querySelector(".iam-button") as HTMLButtonElement).click();
     await flush();
 
-    expect(submitCalls(onAction)[0][1]).toEqual({ formFields: { email_map: "someone@batch.com" } });
+    expect(submitCalls(onAction)[0][1]).toEqual({
+      formFields: { email_map: { type: ProfileAttributeType.STRING, value: "someone@batch.com" } },
+    });
   });
 
   test("the decoy never blocks a submit nor steals the focus of an invalid one", async () => {

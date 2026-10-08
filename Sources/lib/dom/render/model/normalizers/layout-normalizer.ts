@@ -1,4 +1,4 @@
-import { MessageAnyComponentModel, MessageBox, MessageColumnsModel, MessageSpacerModel } from "../model";
+import { MessageComponentModel, MessageBox, MessageColumnsModel, MessageSpacerModel } from "../model";
 import {
   normalizeBox,
   normalizeChildren,
@@ -20,11 +20,11 @@ import {
   DEFAULT_SPACER_HEIGHT,
   DEFAULT_TRANSPARENT_COLOR,
 } from "../normalizer-defaults";
-import { MessageAnyComponentPayload, MessageColor, MessageColumnsPayload, MessageSpacerPayload } from "../types";
+import { MessageComponentPayload, MessageColor, MessageColumnsPayload, MessageComponentTypeValue, MessageSpacerPayload } from "../types";
 
 export function normalizeSpacer(component: MessageSpacerPayload): MessageSpacerModel {
   return {
-    type: "spacer",
+    type: MessageComponentTypeValue.Spacer,
     hideOn: normalizeHideOn(component.hideOn, "spacer.hideOn"),
     configuration: {
       placement: {
@@ -72,14 +72,14 @@ function normalizeLayoutBox(
 /** Normalizes a columns payload and its children; an omitted or partial ratio list falls back to the defaults. */
 export function normalizeColumns(
   component: MessageColumnsPayload,
-  normalizeChild: (component: MessageAnyComponentPayload) => MessageAnyComponentModel | null
+  normalizeChild: (component: MessageComponentPayload) => MessageComponentModel | null
 ): MessageColumnsModel {
   const children = normalizeChildren(component.children, normalizeChild);
   const ratios = normalizeRatios(component.ratios, children.length);
-  const box = normalizeLayoutBox(component, "columns");
+  const box = normalizeLayoutBox(component, MessageComponentTypeValue.Columns);
 
   return {
-    type: "columns",
+    type: MessageComponentTypeValue.Columns,
     hideOn: normalizeHideOn(component.hideOn, "columns.hideOn"),
     configuration: {
       style: {

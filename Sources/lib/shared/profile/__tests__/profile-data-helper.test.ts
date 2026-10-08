@@ -3,6 +3,7 @@ import { Log } from "com.batch.shared/logger";
 import {
   addToArray,
   deduplicateKeepLast,
+  isProfileEmailValueValid,
   isProfileStringArrayValueValid,
   isProfileStringValueValid,
   isProfileURLValueValid,
@@ -59,6 +60,22 @@ describe("profile data helper", () => {
     it("rejects an empty value or one over the maximum length", () => {
       expect(isProfileStringValueValid("")).toBe(false);
       expect(isProfileStringValueValid("a".repeat(Consts.AttributeStringMaxLengthCEP + 1))).toBe(false);
+    });
+  });
+
+  describe("isProfileEmailValueValid", () => {
+    const domain = "@example.com";
+
+    it("accepts an address up to the maximum length", () => {
+      expect(isProfileEmailValueValid("a@b.co")).toBe(true);
+      expect(isProfileEmailValueValid(`${"a".repeat(Consts.EmailAddressMaxLength - domain.length)}${domain}`)).toBe(true);
+    });
+
+    it("rejects a malformed address or one over the maximum length", () => {
+      expect(isProfileEmailValueValid("")).toBe(false);
+      expect(isProfileEmailValueValid("not-an-email")).toBe(false);
+      expect(isProfileEmailValueValid("test@batch.com.")).toBe(false);
+      expect(isProfileEmailValueValid(`${"a".repeat(Consts.EmailAddressMaxLength - domain.length + 1)}${domain}`)).toBe(false);
     });
   });
 

@@ -1,11 +1,11 @@
 import { MessageImageModel } from "../model";
 import { normalizeHideOn, normalizeMarginPlacement, normalizeRadius, parseAspectRatio, parseHeight } from "../normalize-helpers";
 import { DEFAULT_BOX_FALLBACK, DEFAULT_IMAGE_ASPECT_RATIO, DEFAULT_IMAGE_HEIGHT, DEFAULT_IMAGE_RADIUS } from "../normalizer-defaults";
-import { MessageImagePayload } from "../types";
+import { MessageComponentTypeValue, MessageImagePayload } from "../types";
 
 export function normalizeImage(component: MessageImagePayload): MessageImageModel {
   return {
-    type: "image",
+    type: MessageComponentTypeValue.Image,
     id: component.id,
     hideOn: normalizeHideOn(component.hideOn, "image.hideOn"),
     configuration: {

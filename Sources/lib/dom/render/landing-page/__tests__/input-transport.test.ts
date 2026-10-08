@@ -2,9 +2,11 @@
 
 import { MessagingEventPayload } from "com.batch.dom/render/analytics/messaging-events";
 import { RENDER_TEXT_KEY_FORM_INVALID_EMAIL_ERROR } from "com.batch.dom/render/render-constants";
+import type { FormFieldValue } from "com.batch.shared/actions/contracts";
 import EventTracker from "com.batch.shared/event/event-tracker";
 import { ISerializableEvent } from "com.batch.shared/event/serializable-event";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import { WS_URL } from "../../../../../config";
 import { FormSubmittedEvent, InputEventResult } from "../input-contract";
@@ -71,7 +73,11 @@ describe("createLandingInputTransport — submit payload", () => {
   test("submits a _FORM_SUBMITTED event in its native shape, outside the analytics tracker", async () => {
     const h = harness();
 
-    const verdict = h.transport.submitFields({ $email_address: "jean@example.com", consent_d4e5f6: true, topics_g7h8i9: ["a", "b"] });
+    const verdict = h.transport.submitFields({
+      $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" },
+      consent_d4e5f6: { type: ProfileAttributeType.BOOLEAN, value: true },
+      topics_g7h8i9: { type: ProfileAttributeType.ARRAY, value: { $add: ["a", "b"] } },
+    });
     h.resolveVerdict({ status: "accepted" });
     await expect(verdict).resolves.toEqual({ status: "accepted" });
 
@@ -83,7 +89,7 @@ describe("createLandingInputTransport — submit payload", () => {
     expect(event.params).toEqual({
       ed: EVENT_DATA,
       email: "jean@example.com",
-      custom_attributes: { "consent_d4e5f6.b": true, "topics_g7h8i9.a": ["a", "b"] },
+      custom_attributes: { "consent_d4e5f6.b": true, "topics_g7h8i9.a": { $add: ["a", "b"] } },
     });
     expect(h.track).not.toHaveBeenCalled();
     expect(h.flush).not.toHaveBeenCalled();
@@ -92,7 +98,7 @@ describe("createLandingInputTransport — submit payload", () => {
   test("a rejected verdict maps FieldErrorCodes to localized messages", async () => {
     const h = harness();
 
-    const verdict = h.transport.submitFields({ $email_address: "jean@example.com" });
+    const verdict = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
     h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email", extra: "brand_new_code" } });
 
     await expect(verdict).resolves.toEqual({
@@ -107,7 +113,7 @@ describe("createLandingInputTransport — submit payload", () => {
   test("serving text overrides win over the embedded l10n for server errors", async () => {
     const h = harness({ ...landingDefaultTexts("fr"), [RENDER_TEXT_KEY_FORM_INVALID_EMAIL_ERROR]: "Email invalide !" });
 
-    const verdict = h.transport.submitFields({ $email_address: "jean@example.com" });
+    const verdict = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
     h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email" } });
 
     await expect(verdict).resolves.toMatchObject({ fieldErrors: { email: "Email invalide !" } });
@@ -116,11 +122,11 @@ describe("createLandingInputTransport — submit payload", () => {
   test("a verdict rotates the submission id: the next submit is a new logical submission", async () => {
     const h = harness();
 
-    const first = h.transport.submitFields({ $email_address: "jean@example.com" });
+    const first = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
     h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email" } });
     await first;
 
-    const second = h.transport.submitFields({ $email_address: "marie@example.com" });
+    const second = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "marie@example.com" } });
     h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email" } });
     await second;
 
@@ -130,11 +136,11 @@ describe("createLandingInputTransport — submit payload", () => {
   test("no verdict keeps the submission id so a user retry dedupes server-side", async () => {
     const h = harness();
 
-    const first = h.transport.submitFields({ $email_address: "a@b.c" });
+    const first = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "a@b.c" } });
     h.rejectVerdict(new Error("No verdict"));
     await expect(first).rejects.toThrow("No verdict");
 
-    const second = h.transport.submitFields({ $email_address: "a@b.c" });
+    const second = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "a@b.c" } });
     h.resolveVerdict({ status: "accepted" });
     await second;
 
@@ -144,11 +150,11 @@ describe("createLandingInputTransport — submit payload", () => {
   test("no verdict but corrected values start a new submission", async () => {
     const h = harness();
 
-    const first = h.transport.submitFields({ $email_address: "jean@example.com" });
+    const first = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
     h.rejectVerdict(new Error("No verdict"));
     await expect(first).rejects.toThrow("No verdict");
 
-    const second = h.transport.submitFields({ $email_address: "marie@example.com" });
+    const second = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "marie@example.com" } });
     h.resolveVerdict({ status: "accepted" });
     await second;
 
@@ -162,7 +168,7 @@ describe("createLandingInputTransport — submit payload", () => {
       const h = harness();
       jest.setSystemTime(new Date("2026-08-28T09:04:30.000Z"));
 
-      const verdict = h.transport.submitFields({ $email_address: "jean@example.com" });
+      const verdict = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
       h.resolveVerdict({ status: "accepted" });
       await verdict;
 
@@ -177,12 +183,12 @@ describe("createLandingInputTransport — submit payload", () => {
     try {
       const h = harness();
 
-      const first = h.transport.submitFields({ $email_address: "a@b.c" });
+      const first = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "a@b.c" } });
       h.rejectVerdict(new Error("No verdict"));
       await expect(first).rejects.toThrow("No verdict");
 
       jest.setSystemTime(new Date("2026-08-28T09:00:20.000Z"));
-      const second = h.transport.submitFields({ $email_address: "a@b.c" });
+      const second = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "a@b.c" } });
       h.resolveVerdict({ status: "accepted" });
       await second;
 
@@ -197,12 +203,12 @@ describe("createLandingInputTransport — submit payload", () => {
     try {
       const h = harness();
 
-      const first = h.transport.submitFields({ $email_address: "jean@example.com" });
+      const first = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
       h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email" } });
       await first;
 
       jest.setSystemTime(new Date("2026-08-28T09:01:15.000Z"));
-      const second = h.transport.submitFields({ $email_address: "jean@example.com" });
+      const second = h.transport.submitFields({ $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } });
       h.resolveVerdict({ status: "accepted" });
       await second;
 
@@ -211,6 +217,48 @@ describe("createLandingInputTransport — submit payload", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  test("a rejected verdict rotates the submission too: an identical re-submit gets its own id and date", async () => {
+    jest.useFakeTimers({ now: new Date("2026-08-28T09:00:00.000Z") });
+    try {
+      const h = harness();
+      // One literal submitted twice: the same object is the point, so the enum member must stay narrow.
+      const fields = { $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } } satisfies Record<
+        string,
+        FormFieldValue
+      >;
+
+      const first = h.transport.submitFields(fields);
+      h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email" } });
+      await first;
+
+      jest.setSystemTime(new Date("2026-08-28T09:02:00.000Z"));
+      const second = h.transport.submitFields(fields);
+      h.resolveVerdict({ status: "rejected", errors: { email: "invalid_email" } });
+      await second;
+
+      expect(h.submittedEvent(1).id).not.toBe(h.submittedEvent(0).id);
+      expect(h.submittedEvent(0).date).toBe("2026-08-28T09:00:00.000Z");
+      expect(h.submittedEvent(1).date).toBe("2026-08-28T09:02:00.000Z");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("the fingerprint is the normalized params, not the raw fields", async () => {
+    const h = harness();
+
+    const first = h.transport.submitFields({ sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis", "tennis"] } } });
+    h.rejectVerdict(new Error("No verdict"));
+    await expect(first).rejects.toThrow("No verdict");
+
+    const second = h.transport.submitFields({ sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis"] } } });
+    h.resolveVerdict({ status: "accepted" });
+    await second;
+
+    expect(h.submittedEvent(1).params).toEqual({ ed: EVENT_DATA, custom_attributes: { "sports.a": { $add: ["tennis"] } } });
+    expect(h.submittedEvent(1).id).toBe(h.submittedEvent(0).id);
   });
 });
 

@@ -7,6 +7,7 @@ import {
   RENDER_MAPS_TO_EMAIL_ADDRESS,
   RENDER_MAPS_TO_HONEYPOT,
   RENDER_MAPS_TO_PHONE_NUMBER,
+  RENDER_MAPS_TO_TOPIC_PREFERENCES,
   RENDER_TEXT_KEY_FORM_INVALID_EMAIL_ERROR,
   RENDER_TEXT_KEY_FORM_INVALID_ERROR,
   RENDER_TEXT_KEY_FORM_INVALID_PHONE_ERROR,
@@ -14,16 +15,17 @@ import {
 } from "com.batch.dom/render/render-constants";
 import { Consts } from "com.batch.shared/constants/user";
 import { InternalSDKEvent } from "com.batch.shared/event/event-names";
-import { isArray, isBoolean, isDate, isFloat, isNumber, isString, isUnknownObject, isURL } from "com.batch.shared/helpers/primitive";
+import { isSet, isString, isUnknownObject } from "com.batch.shared/helpers/primitive";
 import { isSafeURL, isSecureURL } from "com.batch.shared/helpers/url";
 import { Log } from "com.batch.shared/logger";
 import {
-  deduplicateKeepLast,
-  isProfileStringArrayValueValid,
-  isProfileStringValueValid,
-  isProfileURLValueValid,
+  convertValueProfileAttribute,
+  isProfileEmailValueValid,
+  isValidAttributeKey,
+  validateAndNormalizeTopicPreferences,
 } from "com.batch.shared/profile/profile-data-helper";
-import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
+import { PartialUpdateObject, ProfileAttributeType, ProfileNativeAttributeType } from "com.batch.shared/profile/profile-data-types";
+import type { CustomAttributeType } from "com.batch.shared/profile/profile-events";
 
 import { WS_URL } from "../../../../config";
 
@@ -42,22 +44,27 @@ export interface MessagingEventParams {
   value?: string;
 }
 
+/** `_FORM_SUBMITTED` params: the profile slots a landing page can fill, plus its own envelope. */
 export interface FormSubmittedEventParams {
   /** Serving metadata from `payload.eventData`, copied as-is. */
   ed: Record<string, string>;
   /** Anti-bot decoy value. Present only when the hidden decoy field came back filled. */
   honeypot?: string;
-  /** Keyed by `{mapsTo}.{ProfileAttributeType}`, as the Profile API expects. */
-  custom_attributes?: Record<string, FormFieldValue>;
-  /** Native slots. Each key is a `$`-prefixed `mapsTo` without its marker. */
-  [nativeSlot: string]: FormFieldValue | Record<string, string> | Record<string, FormFieldValue> | undefined;
+  email?: string;
+  phone_number?: string;
+  topic_preferences?: PartialUpdateObject;
+  custom_attributes?: CustomAttributeType;
 }
 
 const RESERVED_PARAM_KEYS: Readonly<Partial<Record<string, true>>> = { ed: true, custom_attributes: true };
 
-const NATIVE_PARAM_KEYS: Readonly<Record<string, string>> = {
-  [RENDER_MAPS_TO_EMAIL_ADDRESS]: "email",
-  [RENDER_MAPS_TO_PHONE_NUMBER]: "phone_number",
+type NativeSlot = ProfileNativeAttributeType.EMAIL | ProfileNativeAttributeType.PHONE_NUMBER | ProfileNativeAttributeType.TOPIC_PREFERENCES;
+
+/** Each `$`-prefixed `mapsTo` a landing page may target, and the param it fills. */
+const NATIVE_SLOTS: Readonly<Partial<Record<string, NativeSlot>>> = {
+  [RENDER_MAPS_TO_EMAIL_ADDRESS]: ProfileNativeAttributeType.EMAIL,
+  [RENDER_MAPS_TO_PHONE_NUMBER]: ProfileNativeAttributeType.PHONE_NUMBER,
+  [RENDER_MAPS_TO_TOPIC_PREFERENCES]: ProfileNativeAttributeType.TOPIC_PREFERENCES,
 };
 
 export interface MessagingEvent {
@@ -140,16 +147,18 @@ export function buildMessagingEventParams(event: MessagingEventPayload, eventDat
   return params;
 }
 
+/** A partial update is reported as the values it checks: the CTA report describes what the user picked, not the profile operation. */
 function serializeCTAFields(fields: Record<string, FormFieldValue>): string | undefined {
-  const named: Record<string, FormFieldValue> = {};
+  const named: Record<string, string | number | boolean | Date | URL | string[]> = {};
   for (const [mapsTo, value] of Object.entries(fields)) {
+    const reported = value.type === ProfileAttributeType.ARRAY ? (value.value.$add ?? []) : value.value;
     if (mapsTo.charAt(0) !== "$") {
-      named[mapsTo] = value;
+      named[mapsTo] = reported;
       continue;
     }
-    const slot = NATIVE_PARAM_KEYS[mapsTo];
+    const slot = NATIVE_SLOTS[mapsTo];
     if (slot !== undefined) {
-      named[`$${slot}`] = value;
+      named[`$${slot}`] = reported;
     }
   }
   return Object.keys(named).length > 0 ? JSON.stringify(named) : undefined;
@@ -171,84 +180,111 @@ export function buildFormSubmittedEvent(
 
     // The decoy is not a profile attribute: no type suffix and no value contract, only a length cap.
     if (mapsTo === RENDER_MAPS_TO_HONEYPOT) {
-      params.honeypot = (isString(value) ? value : String(value)).slice(0, RENDER_HONEYPOT_MAX_LENGTH);
+      if (value.type === ProfileAttributeType.STRING) {
+        params.honeypot = value.value.slice(0, RENDER_HONEYPOT_MAX_LENGTH);
+      }
       continue;
     }
 
     if (mapsTo.charAt(0) === "$") {
-      const slot = NATIVE_PARAM_KEYS[mapsTo];
+      const slot = NATIVE_SLOTS[mapsTo];
       if (slot === undefined) {
         Log.warn(RENDER_LOG_MODULE, `[landing] dropping form field with mapsTo "${mapsTo}": unknown native attribute`);
         continue;
       }
-      // A native slot takes the same converted value as a custom attribute, minus the type suffix.
-      const attribute = isNativeSlotValueValid(mapsTo, value) ? profileAttributeOf(value) : null;
-      if (attribute === null) {
+      if (!fillNativeSlot(params, slot, value)) {
         Log.warn(
           RENDER_LOG_MODULE,
           `[landing] dropping form field with mapsTo "${mapsTo}": the value violates profile attribute constraints`
         );
-        continue;
       }
-      params[slot] = attribute.value;
       continue;
     }
 
-    // The API rejects the whole event on a bad key, so drop the field instead of the lead.
-    if (!Consts.AttributeKeyRegexp.test(mapsTo)) {
-      Log.warn(RENDER_LOG_MODULE, `[landing] dropping form field with mapsTo "${mapsTo}": the key is not a valid custom attribute key`);
+    // The API rejects the whole event on a bad key, so drop the field instead of the lead; the helper names the key.
+    if (!isValidAttributeKey(mapsTo)) {
       continue;
     }
 
     // Same for the value: drop the field rather than let the API reject the whole event.
-    const attribute = profileAttributeOf(value);
-    if (attribute === null) {
+    const converted =
+      value.type === ProfileAttributeType.ARRAY
+        ? convertPartialUpdate(value.value, members => {
+            const set = convertValueProfileAttribute(mapsTo, ProfileAttributeType.ARRAY, members);
+            return isSet(set) ? Array.from(set) : undefined;
+          })
+        : convertValueProfileAttribute(mapsTo, value.type, value.value);
+    // A scalar type never yields a Set at runtime: the guard only narrows the declared return type.
+    if (converted === undefined || isSet(converted)) {
       Log.warn(
         RENDER_LOG_MODULE,
         `[landing] dropping form field with mapsTo "${mapsTo}": the value violates profile attribute constraints`
       );
       continue;
     }
-    (params.custom_attributes ??= {})[`${mapsTo}.${attribute.type}`] = attribute.value;
+    (params.custom_attributes ??= {})[`${mapsTo}.${value.type}`] = converted;
   }
   return { id, name: InternalSDKEvent.FormSubmitted, date: date.toISOString(), params };
 }
 
-function profileAttributeOf(value: FormFieldValue): { type: ProfileAttributeType; value: string | number | boolean | string[] } | null {
-  if (isURL(value)) {
-    return isProfileURLValueValid(value) ? { type: ProfileAttributeType.URL, value: URL.prototype.toString.call(value) } : null;
+/** A native slot holds what its `_PROFILE_DATA_CHANGED` counterpart holds; `false` when the value does not fit it. */
+function fillNativeSlot(params: FormSubmittedEventParams, slot: NativeSlot, value: FormFieldValue): boolean {
+  switch (slot) {
+    case ProfileNativeAttributeType.EMAIL:
+      if (value.type !== ProfileAttributeType.STRING) {
+        return false;
+      }
+      if (!isProfileEmailValueValid(value.value)) {
+        return false;
+      }
+      params.email = value.value;
+      return true;
+    case ProfileNativeAttributeType.PHONE_NUMBER:
+      // E.164, the rule the field already applies to a `$phone_number` slot whatever its `fieldType`.
+      if (value.type !== ProfileAttributeType.STRING || !Consts.PhoneNumberRegexp.test(value.value)) {
+        return false;
+      }
+      params.phone_number = value.value;
+      return true;
+    case ProfileNativeAttributeType.TOPIC_PREFERENCES: {
+      const update =
+        value.type === ProfileAttributeType.ARRAY
+          ? convertPartialUpdate(value.value, members => {
+              try {
+                return validateAndNormalizeTopicPreferences(members);
+              } catch (e) {
+                Log.warn(RENDER_LOG_MODULE, `[landing] $topic_preferences: ${(e as Error).message}`);
+                return undefined;
+              }
+            })
+          : undefined;
+      if (update === undefined) {
+        return false;
+      }
+      params.topic_preferences = update;
+      return true;
+    }
   }
-  if (isDate(value)) {
-    return { type: ProfileAttributeType.DATE, value: value.getTime() };
-  }
-  if (isBoolean(value)) {
-    return { type: ProfileAttributeType.BOOLEAN, value };
-  }
-  if (isArray(value)) {
-    // Mirror of the profile array path, in its order: lowercase, deduplicate last-wins, then validate.
-    const normalized = deduplicateKeepLast(value.map(it => (isString(it) ? it.toLocaleLowerCase() : it)));
-    return isProfileStringArrayValueValid(normalized) ? { type: ProfileAttributeType.ARRAY, value: normalized } : null;
-  }
-  if (isFloat(value)) {
-    return { type: ProfileAttributeType.FLOAT, value };
-  }
-  if (isNumber(value)) {
-    return { type: ProfileAttributeType.INTEGER, value };
-  }
-  return isProfileStringValueValid(value) ? { type: ProfileAttributeType.STRING, value } : null;
 }
 
-function isNativeSlotValueValid(mapsTo: string, value: FormFieldValue): boolean {
-  if (mapsTo === RENDER_MAPS_TO_EMAIL_ADDRESS) {
-    if (!Consts.EmailAddressRegexp.test(isString(value) ? value : String(value))) {
-      return false;
+/** Converts each branch of a partial array update with `convert`, or `undefined` when a present branch is rejected. */
+function convertPartialUpdate(
+  update: PartialUpdateObject,
+  convert: (members: string[]) => string[] | undefined
+): PartialUpdateObject | undefined {
+  const converted: PartialUpdateObject = {};
+  for (const branch of ["$add", "$remove"] as const) {
+    const members = update[branch];
+    if (!Array.isArray(members) || members.length === 0) {
+      continue; // an empty branch is omitted, not rejected
     }
-    return !isString(value) || value.length <= Consts.EmailAddressMaxLength;
+    const result = convert(members);
+    if (result === undefined) {
+      return undefined;
+    }
+    converted[branch] = result;
   }
-  if (mapsTo === RENDER_MAPS_TO_PHONE_NUMBER) {
-    return !isString(value) || isProfileStringValueValid(value);
-  }
-  return true;
+  return converted.$add === undefined && converted.$remove === undefined ? undefined : converted;
 }
 
 export type FieldErrorCode = "required" | "too_short" | "too_long" | "invalid_email" | "invalid_phone" | "invalid_format" | "unknown_field";

@@ -16,6 +16,9 @@ export const RENDER_TEXT_KEY_FORM_REQUIRED_ERROR = "batch.form.error.required";
 export const RENDER_TEXT_KEY_FORM_INVALID_ERROR = "batch.form.error.invalid";
 export const RENDER_TEXT_KEY_FORM_INVALID_EMAIL_ERROR = "batch.form.error.invalid.email";
 export const RENDER_TEXT_KEY_FORM_INVALID_PHONE_ERROR = "batch.form.error.invalid.phone";
+export const RENDER_TEXT_KEY_FORM_INVALID_NUMBER_ERROR = "batch.form.error.invalid.number";
+export const RENDER_TEXT_KEY_FORM_INVALID_DATE_ERROR = "batch.form.error.invalid.date";
+export const RENDER_TEXT_KEY_FORM_INVALID_URL_ERROR = "batch.form.error.invalid.url";
 export const RENDER_TEXT_KEY_FORM_SUBMIT_ERROR = "batch.form.error.submit";
 export const RENDER_TEXT_KEY_FORM_NETWORK_ERROR = "batch.form.error.network";
 /** Spoken completion status, used when the payload carries no success copy. */
@@ -25,6 +28,7 @@ export const RENDER_TEXT_KEY_IMAGE_INTERACTIVE = "batch.image.interactive";
 /** Native profile slots a serving `mapsTo` can declare. */
 export const RENDER_MAPS_TO_EMAIL_ADDRESS = "$email_address";
 export const RENDER_MAPS_TO_PHONE_NUMBER = "$phone_number";
+export const RENDER_MAPS_TO_TOPIC_PREFERENCES = "$topic_preferences";
 
 /** Reserved decoy `mapsTo`. The request serialization resolves it to the `honeypot` param. */
 export const RENDER_MAPS_TO_HONEYPOT = "$honeypot";

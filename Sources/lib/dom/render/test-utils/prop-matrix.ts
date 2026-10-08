@@ -1,6 +1,6 @@
-import type { MessageAnyComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import type { MessageComponentModel, MessageModel } from "com.batch.dom/render/model/model";
 import { normalizeMessage } from "com.batch.dom/render/model/normalizer";
-import type { MessageAnyComponentPayload, MessagePayload } from "com.batch.dom/render/model/types";
+import type { MessageComponentPayload, MessagePayload } from "com.batch.dom/render/model/types";
 import { buildComponentTree } from "com.batch.dom/render/render/builder";
 
 /** A single property case in a component matrix, shared by the normalizer (JSON → model) and renderer (model → CSS) matrices. */
@@ -25,6 +25,9 @@ export type PropMatrix<TPayload, TModel> = {
   [K in keyof Required<Omit<TPayload, "type" | "id">>]: PropEntry<TModel>;
 };
 
+/** Compiles only when `T` is `never`: a matrix split across files proves its keys are all covered. */
+export type AssertNever<T extends never> = T;
+
 /** Everything a component needs to drive its normalizer and renderer matrices from one table. */
 export interface ComponentMatrixSpec<TPayload, TModel> {
   /** Component label used in describe blocks. */
@@ -41,7 +44,7 @@ export interface ComponentMatrixSpec<TPayload, TModel> {
 export function componentMessage(component: Record<string, unknown>, extra: Partial<MessagePayload> = {}): MessagePayload {
   return {
     format: "modal",
-    root: { children: [component as unknown as MessageAnyComponentPayload] },
+    root: { children: [component as unknown as MessageComponentPayload] },
     closeOptions: {},
     texts: {},
     urls: {},
@@ -51,7 +54,7 @@ export function componentMessage(component: Record<string, unknown>, extra: Part
 }
 
 /** Narrows the first root child to a component of the expected `type`. */
-export function selectFirstChild<TModel extends MessageAnyComponentModel>(message: MessageModel, type: TModel["type"]): TModel {
+export function selectFirstChild<TModel extends MessageComponentModel>(message: MessageModel, type: TModel["type"]): TModel {
   const child = message.root.children[0];
   if (!child || child.type !== type) {
     throw new Error(`expected first root child of type "${type}", got "${child ? child.type : "none"}"`);

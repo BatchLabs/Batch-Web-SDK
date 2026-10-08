@@ -1,7 +1,19 @@
 import type { EventAttributeType, TypedEventAttributeValue } from "com.batch.shared/event/event-types";
+import { type PartialUpdateObject, ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
-/** Value types a rendered form field can carry. */
-export type FormFieldValue = string | number | boolean | string[] | Date | URL;
+/**
+ * What a form field hands to the submit, labelled with the profile type its component declared.
+ * Not `BatchSDK.ProfileTypedAttributeValue`: a public array replaces the attribute, a form array is a partial update
+ * bounded to the options it shows, so replacing would erase the members the app or another page set.
+ */
+export type FormFieldValue =
+  | { type: ProfileAttributeType.STRING; value: string }
+  | { type: ProfileAttributeType.BOOLEAN; value: boolean }
+  | { type: ProfileAttributeType.INTEGER; value: number }
+  | { type: ProfileAttributeType.FLOAT; value: number }
+  | { type: ProfileAttributeType.DATE; value: Date }
+  | { type: ProfileAttributeType.URL; value: URL }
+  | { type: ProfileAttributeType.ARRAY; value: PartialUpdateObject };
 
 /** An event attribute value: an autodetected value, or the typed `{ type, value }` form. */
 export type RenderEventAttributeValue = EventAttributeType | TypedEventAttributeValue;

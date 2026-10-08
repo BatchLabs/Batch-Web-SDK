@@ -1,7 +1,7 @@
 import { RENDER_LOG_MODULE } from "com.batch.dom/render/render-constants";
 import { Log } from "com.batch.shared/logger";
 
-import { MessageAnyComponentModel, MessageCloseOptionsModel, MessageModel } from "./model";
+import { MessageComponentModel, MessageCloseOptionsModel, MessageModel } from "./model";
 import {
   normalizeBorderStyleConfiguration,
   normalizeChildren,
@@ -26,6 +26,7 @@ import {
   DEFAULT_TRANSPARENT_COLOR,
 } from "./normalizer-defaults";
 import { normalizeButton } from "./normalizers/button-normalizer";
+import { normalizeChoice } from "./normalizers/choice-normalizer";
 import { normalizeDivider } from "./normalizers/divider-normalizer";
 import { normalizeInput } from "./normalizers/field-normalizer";
 import { normalizeImage } from "./normalizers/image-normalizer";
@@ -34,7 +35,8 @@ import { normalizeLabel } from "./normalizers/text-normalizer";
 import {
   isMessageFormat,
   MessageAction,
-  MessageAnyComponentPayload,
+  MessageComponentPayload,
+  MessageComponentTypeValue,
   MessageFormat,
   MessageFormatValue,
   MessagePayload,
@@ -90,7 +92,7 @@ export function normalizeMessage(payload: MessagePayload): MessageModel {
         ),
       },
       children: normalizeChildren(payload.root?.children, normalizeComponent).filter(
-        (child): child is MessageAnyComponentModel => child !== null
+        (child): child is MessageComponentModel => child !== null
       ),
     },
     closeOptions,
@@ -122,22 +124,24 @@ function normalizeCloseOptions(payloadCloseOptions: MessagePayload["closeOptions
   return { auto, button };
 }
 
-function normalizeComponent(component: MessageAnyComponentPayload): MessageAnyComponentModel | null {
+function normalizeComponent(component: MessageComponentPayload): MessageComponentModel | null {
   switch (component.type) {
-    case "button":
+    case MessageComponentTypeValue.Button:
       return normalizeButton(component);
-    case "text":
+    case MessageComponentTypeValue.Text:
       return normalizeLabel(component);
-    case "image":
+    case MessageComponentTypeValue.Image:
       return normalizeImage(component);
-    case "divider":
+    case MessageComponentTypeValue.Divider:
       return normalizeDivider(component);
-    case "spacer":
+    case MessageComponentTypeValue.Spacer:
       return normalizeSpacer(component);
-    case "columns":
+    case MessageComponentTypeValue.Columns:
       return normalizeColumns(component, child => normalizeComponent(child));
-    case "field":
+    case MessageComponentTypeValue.Field:
       return normalizeInput(component);
+    case MessageComponentTypeValue.Choice:
+      return normalizeChoice(component);
     default:
       Log.warn(RENDER_LOG_MODULE, `[normalizer] unknown component type "${(component as { type?: unknown }).type}", ignoring it`);
       return null;

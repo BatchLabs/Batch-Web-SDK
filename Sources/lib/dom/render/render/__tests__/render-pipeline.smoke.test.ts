@@ -19,6 +19,7 @@ describe("render pipeline · JSON → normalize → build tree → CSS (smoke)",
     expect(root.querySelector(".iam-spacer")).not.toBeNull();
     expect(root.querySelector(".iam-columns")).not.toBeNull();
     expect(root.querySelector(".iam-input")).not.toBeNull();
+    expect(root.querySelector(".iam-field-choice")).not.toBeNull();
     expect(root.querySelector(".iam-button")).not.toBeNull();
   });
 

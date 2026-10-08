@@ -3,34 +3,15 @@
 import type { MessageInputModel } from "com.batch.dom/render/model/model";
 import { normalizeMessage } from "com.batch.dom/render/model/normalizer";
 import { DEFAULT_INPUT_TYPE } from "com.batch.dom/render/model/normalizer-defaults";
-import type { MessageAnyComponentPayload, MessageInputPayload, MessagePayload } from "com.batch.dom/render/model/types";
-import { FORM_SUBMIT_ACTION_ID } from "com.batch.dom/render/render-constants";
-import type { ComponentMatrixSpec, PropMatrix } from "com.batch.dom/render/test-utils/prop-matrix";
+import type { MessageInputPayload } from "com.batch.dom/render/model/types";
+import { buildFieldMessage, FIELD_ID } from "com.batch.dom/render/test-utils/factories/field-payloads";
+import type { AssertNever, ComponentMatrixSpec, PropMatrix } from "com.batch.dom/render/test-utils/prop-matrix";
 import { attributesOf, runComponentMatrix, selectFirstChild } from "com.batch.dom/render/test-utils/prop-matrix";
 import { Consts } from "com.batch.shared/constants/user";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import type { styleProps } from "./input.matrix.style.test";
-
-const FIELD_ID = "email";
-const FIELD_MAP_TO = "email_map";
-const SUBMIT_ID = "cta";
-
-function buildFieldMessage(patch: Record<string, unknown>, message?: Partial<MessagePayload>): MessagePayload {
-  const children = [
-    { type: "field", id: FIELD_ID, mapsTo: FIELD_MAP_TO, placeholderId: "email_ph", labelTextId: "email_label", ...patch },
-    { type: "button", id: SUBMIT_ID },
-  ];
-  return {
-    format: "modal",
-    root: { children: children as unknown as MessageAnyComponentPayload[] },
-    closeOptions: {},
-    texts: { email_label: "Email", email_ph: "you@example.com" },
-    urls: {},
-    actions: { [SUBMIT_ID]: { action: FORM_SUBMIT_ACTION_ID } },
-    ...message,
-  };
-}
 
 const control = (el: HTMLElement): HTMLInputElement => el.querySelector(".iam-input") as HTMLInputElement;
 const BASE_CONTROL_ATTRS = { name: FIELD_ID, placeholder: "you@example.com", "aria-label": "Email" };
@@ -40,7 +21,16 @@ const requiredMarker = (el: HTMLElement): HTMLElement | null => el.querySelector
 
 type BehaviorProps = Pick<
   MessageInputPayload,
-  "fieldType" | "placeholderId" | "labelTextId" | "labelVisible" | "minMax" | "required" | "validation" | "hideOn" | "mapsTo"
+  | "fieldType"
+  | "attributeType"
+  | "placeholderId"
+  | "labelTextId"
+  | "labelVisible"
+  | "minMax"
+  | "required"
+  | "validation"
+  | "hideOn"
+  | "mapsTo"
 >;
 
 export const behaviorProps: PropMatrix<BehaviorProps, MessageInputModel> = {
@@ -112,6 +102,77 @@ export const behaviorProps: PropMatrix<BehaviorProps, MessageInputModel> = {
         patch: { fieldType: "weird" },
         expectModel: m => expect(m.configuration.inputType).toBe(DEFAULT_INPUT_TYPE),
         expectCss: el => expect(control(el).type).toBe("text"),
+      },
+    ],
+  },
+
+  attributeType: {
+    cases: [
+      {
+        name: "omitted → string, the plain text control a field has always rendered",
+        patch: {},
+        expectModel: m => expect(m.configuration.attributeType).toBe(ProfileAttributeType.STRING),
+        expectCss: el => expect([control(el).type, control(el).hasAttribute("inputmode")]).toEqual(["text", false]),
+      },
+      {
+        name: "unknown → string, like any unreadable enum",
+        patch: { attributeType: "money" },
+        expectModel: m => expect(m.configuration.attributeType).toBe(ProfileAttributeType.STRING),
+        expectCss: el => expect(control(el).type).toBe("text"),
+      },
+      {
+        name: "integer → the text control, with the digit keyboard and no other assisted-entry attribute",
+        patch: { attributeType: "integer" },
+        expectModel: m => expect(m.configuration.attributeType).toBe(ProfileAttributeType.INTEGER),
+        expectCss: el =>
+          expect(attributesOf(control(el))).toEqual({
+            ...BASE_CONTROL_ATTRS,
+            type: "text",
+            inputmode: "numeric",
+            enterkeyhint: "next",
+            maxlength: String(Consts.AttributeStringMaxLengthCEP),
+          }),
+      },
+      {
+        name: "float → the text control, with the decimal keyboard and no other assisted-entry attribute",
+        patch: { attributeType: "float" },
+        expectModel: m => expect(m.configuration.attributeType).toBe(ProfileAttributeType.FLOAT),
+        expectCss: el =>
+          expect(attributesOf(control(el))).toEqual({
+            ...BASE_CONTROL_ATTRS,
+            type: "text",
+            inputmode: "decimal",
+            enterkeyhint: "next",
+            maxlength: String(Consts.AttributeStringMaxLengthCEP),
+          }),
+      },
+      {
+        name: "date → the native date control, which constrains the entry instead of widening it with a keyboard hint",
+        patch: { attributeType: "date" },
+        expectModel: m => expect(m.configuration.attributeType).toBe(ProfileAttributeType.DATE),
+        expectCss: el =>
+          expect(attributesOf(control(el))).toEqual({
+            ...BASE_CONTROL_ATTRS,
+            type: "date",
+            enterkeyhint: "next",
+            maxlength: String(Consts.AttributeStringMaxLengthCEP),
+          }),
+      },
+      {
+        name: "url → the native url control, its own native cap and the url assisted-entry set",
+        patch: { attributeType: "url" },
+        expectModel: m => expect(m.configuration.attributeType).toBe(ProfileAttributeType.URL),
+        expectCss: el =>
+          expect(attributesOf(control(el))).toEqual({
+            ...BASE_CONTROL_ATTRS,
+            type: "url",
+            inputmode: "url",
+            autocapitalize: "none",
+            autocorrect: "off",
+            spellcheck: "false",
+            enterkeyhint: "next",
+            maxlength: String(Consts.AttributeURLMaxLength),
+          }),
       },
     ],
   },
@@ -311,6 +372,15 @@ export const behaviorProps: PropMatrix<BehaviorProps, MessageInputModel> = {
           expect(control(el).maxLength).toBe(Consts.AttributeStringMaxLengthCEP);
         },
       },
+      {
+        name: "on a typed field → ignored, only the native bound of its kind applies",
+        patch: { attributeType: "url", minMax: [5, 10] },
+        expectModel: m => {
+          expect(m.configuration.minLength).toBeUndefined();
+          expect(m.configuration.maxLength).toBeUndefined();
+        },
+        expectCss: el => expect(control(el).maxLength).toBe(Consts.AttributeURLMaxLength),
+      },
     ],
   },
 
@@ -411,7 +481,6 @@ export const behaviorProps: PropMatrix<BehaviorProps, MessageInputModel> = {
 };
 
 type UncoveredInputProp = Exclude<keyof Omit<MessageInputPayload, "type" | "id">, keyof typeof styleProps | keyof typeof behaviorProps>;
-type AssertNever<T extends never> = T;
 export type EveryInputPropIsCovered = AssertNever<UncoveredInputProp>;
 
 const spec: ComponentMatrixSpec<BehaviorProps, MessageInputModel> = {
@@ -446,5 +515,25 @@ describe("Field behavior · mapsTo rejection", () => {
 
     expect(message.root.children).toHaveLength(1);
     expect(message.root.children[0]?.type).toBe("button");
+  });
+});
+
+describe("Field behavior · attributeType rejection", () => {
+  const warn = jest.spyOn(Log, "warn");
+
+  beforeEach(() => warn.mockImplementation(() => undefined));
+  afterEach(() => warn.mockReset());
+
+  test.each<[string, Record<string, unknown>]>([
+    ["a boolean, which no text control can carry", { attributeType: "boolean" }],
+    ["an array, which belongs to a checkbox group", { attributeType: "array" }],
+    ["an integer on an email field", { fieldType: "email", attributeType: "integer" }],
+    ["a date on a phone field", { fieldType: "phone", attributeType: "date" }],
+    ["a url on a native slot, which holds a string", { mapsTo: "$email_address", attributeType: "url" }],
+  ])("%s drops the field and warns", (_label, patch) => {
+    const message = normalizeMessage(buildFieldMessage(patch));
+
+    expect(message.root.children.some(child => child.type === "field")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.anything(), expect.stringContaining(FIELD_ID));
   });
 });

@@ -9,7 +9,7 @@ const provider = new SystemParameterProvider();
 /* really useful test, for the beauty of it */
 test("resolves to the current sdk api lvl", () => {
   return provider.getParameterForKey(SystemKeys.SDKAPILevel).then(apilvl => {
-    expect(apilvl).toBe(2);
+    expect(apilvl).toBe(51);
   });
 });
 

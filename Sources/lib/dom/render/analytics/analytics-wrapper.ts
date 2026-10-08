@@ -1,5 +1,6 @@
 import { MessagingCTAType, MessagingEventPayload } from "com.batch.dom/render/analytics/messaging-events";
-import { MessageAnyComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import { MessageComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import { MessageComponentTypeValue } from "com.batch.dom/render/model/types";
 
 export enum MessageCloseErrorCause {
   Unknown = 0,
@@ -120,21 +121,21 @@ function sanitizeEventData(value: Record<string, string> | undefined): Record<st
 export function ctaTypeForComponentId(message: MessageModel, componentId: string): MessagingCTAType {
   const component = findComponentById(message.root.children, componentId);
   switch (component?.type) {
-    case "image":
+    case MessageComponentTypeValue.Image:
       return "image";
-    case "button":
+    case MessageComponentTypeValue.Button:
     default:
       return "button";
   }
 }
 
-function findComponentById(components: MessageAnyComponentModel[], componentId: string): MessageAnyComponentModel | null {
+function findComponentById(components: MessageComponentModel[], componentId: string): MessageComponentModel | null {
   for (const component of components) {
     if ("id" in component && component.id === componentId) {
       return component;
     }
-    if (component.type === "columns") {
-      const children = component.configuration.children.filter((child): child is MessageAnyComponentModel => child != null);
+    if (component.type === MessageComponentTypeValue.Columns) {
+      const children = component.configuration.children.filter((child): child is MessageComponentModel => child != null);
       const match = findComponentById(children, componentId);
       if (match != null) {
         return match;

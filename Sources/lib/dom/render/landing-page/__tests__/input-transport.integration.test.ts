@@ -4,6 +4,8 @@ import { createLandingInputTransport } from "com.batch.dom/render/landing-page/i
 import { createLandingPageActionExecutor, LandingPageActionsConfig } from "com.batch.dom/render/landing-page/landing-page-actions";
 import { LandingPageAnalyticsSink } from "com.batch.dom/render/landing-page/landing-page-analytics-sink";
 import { landingDefaultTexts } from "com.batch.dom/render/landing-page/landing-page-l10n";
+import { ATTRIBUTE_TYPE_CASES, ATTRIBUTE_TYPES, collectedSample } from "com.batch.dom/render/test-utils/factories/attribute-type-cases";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import { WS_URL } from "../../../../../config";
 
@@ -66,7 +68,9 @@ describe("landing page action registry (batch.form.submit)", () => {
 
   test("a submit POSTs a _FORM_SUBMITTED request envelope to the served endpoint", async () => {
     const fetchMock = mockVerdict("accepted");
-    const outcome = await makeExecutor().executor.execute(SUBMIT, { formFields: { $email_address: "user@example.com" } });
+    const outcome = await makeExecutor().executor.execute(SUBMIT, {
+      formFields: { $email_address: { type: ProfileAttributeType.STRING, value: "user@example.com" } },
+    });
 
     expect(outcome).toEqual({ kind: "form-feedback", status: "success" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -85,11 +89,35 @@ describe("landing page action registry (batch.form.submit)", () => {
     expect(body.events[0].date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   });
 
+  test("every profile type reaches the request body in its wire shape", async () => {
+    const fetchMock = mockVerdict("accepted");
+    const outcome = await makeExecutor().executor.execute(SUBMIT, {
+      formFields: {
+        $email_address: { type: ProfileAttributeType.STRING, value: "user@example.com" },
+        ...Object.fromEntries(ATTRIBUTE_TYPES.map(type => [`k_${type}`, collectedSample(type)])),
+      },
+    });
+
+    expect(outcome).toEqual({ kind: "form-feedback", status: "success" });
+    // Read the posted JSON back: a Date or a URL only becomes a wire value once it has crossed JSON.stringify.
+    expect(submittedEvent(fetchMock).params).toEqual({
+      ed: { page_id: "lp-42", is_test: "true" },
+      email: "user@example.com",
+      custom_attributes: Object.fromEntries(
+        ATTRIBUTE_TYPES.map(type => {
+          const { wire } = ATTRIBUTE_TYPE_CASES[type];
+          return [`k_${type}.${wire.suffix}`, wire.json];
+        })
+      ),
+    });
+  });
+
   test("an unparseable response keeps the form once, then errors and opens the embedded error page", async () => {
     mockFetch({ unexpected: true });
     jest.spyOn(console, "error").mockImplementation(() => undefined);
     const { executor, showEmbeddedErrorPage, navigate } = makeExecutor();
-    const submit = (): Promise<unknown> => executor.execute(SUBMIT, { formFields: { $email_address: "jean@example.com" } });
+    const submit = (): Promise<unknown> =>
+      executor.execute(SUBMIT, { formFields: { $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } } });
 
     await expect(submit()).rejects.toThrow("Could not parse landing page input response");
     expect(showEmbeddedErrorPage).not.toHaveBeenCalled();
@@ -113,7 +141,9 @@ describe("landing page action registry (batch.form.submit)", () => {
       (global as unknown as { fetch: typeof fetch }).fetch = fetchMock;
       const { executor, showEmbeddedErrorPage } = makeExecutor();
 
-      const pending = executor.execute(SUBMIT, { formFields: { $email_address: "jean@example.com" } });
+      const pending = executor.execute(SUBMIT, {
+        formFields: { $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } },
+      });
       // The submit loop spaces its attempts by RETRY_MIN_INTERVAL_MS, which is 1s.
       await jest.advanceTimersByTimeAsync(1100);
 
@@ -154,7 +184,9 @@ describe("landing page action registry (batch.form.submit)", () => {
       new LandingPageAnalyticsSink(transport).emit({ type: "displayed" });
 
       await jest.advanceTimersByTimeAsync(1900);
-      const pending = executor.execute(SUBMIT, { formFields: { $email_address: "jean@example.com" } });
+      const pending = executor.execute(SUBMIT, {
+        formFields: { $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } },
+      });
       await jest.advanceTimersByTimeAsync(1100);
 
       await expect(pending).resolves.toEqual({ kind: "form-feedback", status: "success" });
@@ -169,7 +201,7 @@ describe("landing page action registry (batch.form.submit)", () => {
     const fetchMock = mockVerdict("accepted");
     const { executor, showEmbeddedErrorPage, navigate } = makeExecutor({ errorPageEndpoint: ERROR_PAGE });
 
-    await executor.execute(SUBMIT, { formFields: { $email_address: "jean@example.com" } });
+    await executor.execute(SUBMIT, { formFields: { $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } } });
     await flush();
 
     expect(navigate).not.toHaveBeenCalled();
@@ -189,7 +221,8 @@ describe("landing page action registry (batch.form.submit)", () => {
       });
       (global as unknown as { fetch: typeof fetch }).fetch = fetchMock;
       const { executor, showEmbeddedErrorPage, navigate } = makeExecutor({ errorPageEndpoint: ERROR_PAGE });
-      const submit = (): Promise<unknown> => executor.execute(SUBMIT, { formFields: { $email_address: "jean@example.com" } });
+      const submit = (): Promise<unknown> =>
+        executor.execute(SUBMIT, { formFields: { $email_address: { type: ProfileAttributeType.STRING, value: "jean@example.com" } } });
 
       // 2100ms covers RETRY_MAX_ATTEMPTS attempts spaced by RETRY_MIN_INTERVAL_MS.
       const first = submit();

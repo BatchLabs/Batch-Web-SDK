@@ -3,7 +3,9 @@ import { isArray, isBoolean, isDate, isFloat, isNumber, isString, isURL } from "
 import { isProfileTypedAttributeValue } from "com.batch.shared/helpers/typed-attribute";
 import { Log } from "com.batch.shared/logger";
 import {
+  convertValueProfileAttribute,
   deduplicateKeepLast,
+  isProfileEmailValueValid,
   isProfileURLValueValid,
   isValidAttributeKey,
   isValidStringArrayValue,
@@ -139,13 +141,11 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return this;
     }
 
-    if (!Consts.EmailAddressRegexp.test(email || "")) {
-      Log.warn(logModuleName, "Invalid email address. Please make sure to respect the following format: `*@*.* `");
-      return this;
-    }
-
-    if (isString(email) && email.length > Consts.EmailAddressMaxLength) {
-      Log.warn(logModuleName, `Email cannot be longer than ${Consts.EmailAddressMaxLength} characters.`);
+    if (!isProfileEmailValueValid(email)) {
+      Log.warn(
+        logModuleName,
+        `Invalid email address. Please make sure to respect the following format: \`*@*.*\`, with at most ${Consts.EmailAddressMaxLength} characters.`
+      );
       return this;
     }
 
@@ -268,7 +268,11 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
         Log.warn(logModuleName, `value cannot be undefined or null. Ignoring attribute ${key}.`);
         return this;
       }
-      const userAttributeValueConverted = this.convertValueProfileAttribute(key, value);
+      // The editor stores array members lowercased, as it does for an untyped array; the shared conversion keeps case.
+      const type: ProfileAttributeType | BatchSDK.ProfileAttributeType = value.type;
+      const members =
+        type === ProfileAttributeType.ARRAY && isArray(value.value) ? value.value.map(val => val.toLocaleLowerCase()) : value.value;
+      const userAttributeValueConverted = convertValueProfileAttribute(key, value.type, members);
       if (userAttributeValueConverted === undefined) {
         return this;
       }
@@ -440,124 +444,5 @@ export class ProfileAttributeEditor implements BatchSDK.IProfileDataEditor {
       return userAttribute;
     }
     Log.warn(`No type corresponding to this value ${value}. Ignoring attribute ${key}.`);
-  }
-
-  private convertValueProfileAttribute(
-    key: string,
-    userAttribute: BatchSDK.ProfileTypedAttributeValue
-  ): string | number | boolean | Set<string> | undefined {
-    switch (userAttribute.type) {
-      case ProfileAttributeType.URL: {
-        if (isURL(userAttribute.value)) {
-          if (!isProfileURLValueValid(userAttribute.value)) {
-            Log.warn(
-              logModuleName,
-              `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
-            );
-            return;
-          }
-          return URL.prototype.toString.call(userAttribute.value);
-        }
-        if (isString(userAttribute.value)) {
-          try {
-            const convertedUrlValue = new URL(userAttribute.value);
-            if (!isProfileURLValueValid(convertedUrlValue)) {
-              Log.warn(
-                logModuleName,
-                `URL attribute can't be empty or longer than ${Consts.AttributeURLMaxLength} characters. Ignoring attribute ${key}.`
-              );
-              return;
-            }
-
-            return URL.prototype.toString.call(convertedUrlValue);
-          } catch (e) {
-            Log.warn(
-              logModuleName,
-              `Invalid attribute value for the URL type, must respect scheme://[authority][path][?query][#fragment] format. Ignoring attribute ${key}.`
-            );
-            return;
-          }
-        }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the URL type. Must be a string, or URL.
-            Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
-      }
-      case ProfileAttributeType.STRING: {
-        if (!isValidStringValue(userAttribute.value, key)) {
-          return;
-        }
-        if (isString(userAttribute.value) || isNumber(userAttribute.value)) {
-          return userAttribute.value.toString();
-        }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the STRING type. Must be a string, or number.
-          Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
-      }
-      case ProfileAttributeType.INTEGER: {
-        if (isString(userAttribute.value) || isNumber(userAttribute.value)) {
-          return Math.ceil(Number(userAttribute.value));
-        }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the INTEGER type. Must be a string, or number.
-          Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
-      }
-      case ProfileAttributeType.FLOAT: {
-        if (isString(userAttribute.value) || isNumber(userAttribute.value)) {
-          return Number(userAttribute.value);
-        }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the FLOAT type. Must be a string, or number.
-          Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
-      }
-      case ProfileAttributeType.BOOLEAN: {
-        if (isBoolean(userAttribute.value)) {
-          return Boolean(userAttribute.value);
-        }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the BOOLEAN type. Must be a boolean or number.
-          Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
-      }
-      case ProfileAttributeType.DATE: {
-        if (isDate(userAttribute.value)) {
-          return userAttribute.value.getTime();
-        }
-        Log.warn(
-          logModuleName,
-          `Invalid attribute value for the DATE type. Must be a DATE.
-          Ignoring attribute with this value: ${userAttribute.value}.`
-        );
-        return;
-      }
-      case ProfileAttributeType.ARRAY: {
-        if (!isArray(userAttribute.value)) {
-          Log.warn(logModuleName, `Invalid attribute value for the ARRAY type. Must be an array of strings. Ignoring attribute ${key}.`);
-          return;
-        }
-        const lowercased = userAttribute.value.map((val: string) => val.toLocaleLowerCase());
-        const deduped = deduplicateKeepLast(lowercased);
-        if (!isValidStringArrayValue(deduped, key)) {
-          return;
-        }
-        return new Set(deduped);
-      }
-      default:
-        Log.warn("This type does not exist. Ignoring attribute.");
-        return;
-    }
   }
 }

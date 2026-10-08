@@ -1,7 +1,11 @@
+import type { MessageInputAttributeType, MessageProfileAttributeType } from "./attribute-kinds";
 import type {
   MessageAction,
   MessageAspectRatio as MessageAspectRatioType,
+  MessageChoiceLayout,
+  MessageChoiceType,
   MessageColor,
+  MessageComponentTypeValue,
   MessageFormat,
   MessageHideOn,
   MessageHorizontalAlignment,
@@ -71,6 +75,15 @@ export interface MessageRequired {
   required: boolean;
 }
 
+export interface MessageFieldLabel {
+  /** Key in `message.texts` holding the label; absent means no label is rendered. */
+  labelTextId?: string;
+  labelVisible: boolean;
+  labelFontSize: number;
+  labelFontSizeDesktop?: number;
+  labelColor: MessageColor;
+}
+
 export interface MessageModel {
   format: MessageFormat;
   minMLvl?: number;
@@ -86,7 +99,7 @@ export interface MessageModel {
 
 export interface MessageRootModel {
   configuration: RootConfiguration;
-  children: MessageAnyComponentModel[];
+  children: MessageComponentModel[];
 }
 
 export interface RootConfiguration {
@@ -105,17 +118,18 @@ export interface MessageCloseOptionsModel {
   };
 }
 
-export type MessageAnyComponentModel =
+export type MessageComponentModel =
   | MessageButtonModel
   | MessageLabelModel
   | MessageImageModel
   | MessageDividerModel
   | MessageSpacerModel
   | MessageColumnsModel
-  | MessageInputModel;
+  | MessageInputModel
+  | MessageChoiceModel;
 
 export interface MessageButtonModel extends MessageHideable {
-  type: "button";
+  type: typeof MessageComponentTypeValue.Button;
   id: string;
   configuration: {
     // `contentRef` and `actionRef` mirror `id`, kept distinct for model parity with iOS and Android.
@@ -133,7 +147,7 @@ export interface MessageButtonModel extends MessageHideable {
 }
 
 export interface MessageLabelModel extends MessageHideable {
-  type: "text";
+  type: typeof MessageComponentTypeValue.Text;
   id: string;
   configuration: {
     contentRef: string;
@@ -144,7 +158,7 @@ export interface MessageLabelModel extends MessageHideable {
 }
 
 export interface MessageImageModel extends MessageHideable {
-  type: "image";
+  type: typeof MessageComponentTypeValue.Image;
   id: string;
   configuration: {
     contentRef: string;
@@ -162,7 +176,7 @@ export interface MessageImageModel extends MessageHideable {
 }
 
 export interface MessageDividerModel extends MessageHideable {
-  type: "divider";
+  type: typeof MessageComponentTypeValue.Divider;
   configuration: {
     style: {
       color: MessageColor;
@@ -176,7 +190,7 @@ export interface MessageDividerModel extends MessageHideable {
 }
 
 export interface MessageSpacerModel extends MessageHideable {
-  type: "spacer";
+  type: typeof MessageComponentTypeValue.Spacer;
   configuration: {
     placement: {
       height: MessageHeightType;
@@ -185,7 +199,7 @@ export interface MessageSpacerModel extends MessageHideable {
 }
 
 export interface MessageColumnsModel extends MessageHideable {
-  type: "columns";
+  type: typeof MessageComponentTypeValue.Columns;
   configuration: {
     style: {
       spacing: number;
@@ -198,30 +212,24 @@ export interface MessageColumnsModel extends MessageHideable {
       paddingDesktop?: MessageBox;
     };
     ratios: number[];
-    children: (MessageAnyComponentModel | null)[];
+    children: (MessageComponentModel | null)[];
   };
 }
 
 export interface MessageInputModel extends MessageValidatable, MessageRequired {
-  type: "field";
+  type: typeof MessageComponentTypeValue.Field;
   id: string;
   /** Profile target of the submitted value. A `$` prefix designates a native attribute. See `MessageInputPayload.mapsTo`. */
   mapsTo: string;
-  configuration: {
+  configuration: MessageFieldLabel & {
     inputType: MessageInputType;
+    attributeType: MessageInputAttributeType;
     /** Key in `message.texts` holding the placeholder; absent means no placeholder. */
     placeholderId?: string;
-    /** Key in `message.texts` holding the label; absent means no label is rendered. */
-    labelTextId?: string;
-    /** `false` hides the label visually. It stays in the DOM for the `label[for]` link, and the placeholder names the field. */
-    labelVisible: boolean;
     /** Minimum accepted value length, from `minMax[0]`. The submit step enforces it like `required`. */
     minLength?: number;
     /** Maximum accepted value length, from `minMax[1]`. It caps the input characters. */
     maxLength?: number;
-    labelFontSize: number;
-    labelFontSizeDesktop?: number;
-    labelColor: MessageColor;
     /** Placeholder color, applied as-is. If absent, the placeholder inherits the text color at reduced opacity. */
     placeholderColor?: MessageColor;
     /** Field width as a percentage of the available width. Valid values are above 0 and up to 100. */
@@ -234,5 +242,35 @@ export interface MessageInputModel extends MessageValidatable, MessageRequired {
       padding: MessageBox;
       paddingDesktop?: MessageBox;
     };
+  };
+}
+
+export interface MessageChoiceValueModel {
+  id: string;
+  attributeValue: string;
+  selected: boolean;
+}
+
+export interface MessageChoiceModel extends MessageRequired {
+  type: typeof MessageComponentTypeValue.Choice;
+  id: string;
+  mapsTo?: string;
+  configuration: MessageFieldLabel & {
+    choiceType: MessageChoiceType;
+    attributeType: MessageProfileAttributeType;
+    /** Kept options in payload order: at least 2 on a radio, 1 on a boolean checkbox, 1 to `Consts.MaxEventArrayItems` on an array. */
+    values: MessageChoiceValueModel[];
+    /** Fewest checked options the submit accepts. Only an `array` choice carries it. */
+    minSelected?: number;
+    /** Most options the group lets the user check. */
+    maxSelected?: number;
+    layout: MessageChoiceLayout;
+    align: MessageHorizontalAlignment;
+    spacing: number;
+    checkedColor: MessageColor;
+    borderColor: MessageColor;
+    textColor: MessageColor;
+    fontStyle: MessageFontStyle;
+    placement: MessageMarginPlacement;
   };
 }

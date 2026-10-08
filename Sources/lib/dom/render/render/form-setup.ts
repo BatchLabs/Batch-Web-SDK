@@ -1,4 +1,5 @@
-import type { MessageAnyComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import type { MessageComponentModel, MessageModel } from "com.batch.dom/render/model/model";
+import { MessageComponentTypeValue } from "com.batch.dom/render/model/types";
 import {
   FORM_SUBMIT_ACTION_ID,
   isFormSubmitAction,
@@ -10,6 +11,7 @@ import {
 } from "com.batch.dom/render/render-constants";
 import { FormSubmitRuntime, MessageFormController } from "com.batch.dom/render/runtime/form-controller";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import type { ActionHandler } from "./builder";
 import { createElement, resolveMessageText } from "./component-helpers";
@@ -35,14 +37,11 @@ export interface FormRenderContext {
 }
 
 /** Visits every component in the tree depth-first, and descends into columns. */
-export function forEachComponent(
-  children: (MessageAnyComponentModel | null)[],
-  visit: (component: MessageAnyComponentModel) => void
-): void {
+export function forEachComponent(children: (MessageComponentModel | null)[], visit: (component: MessageComponentModel) => void): void {
   for (const child of children) {
     if (!child) continue;
     visit(child);
-    if (child.type === "columns") {
+    if (child.type === MessageComponentTypeValue.Columns) {
       forEachComponent(child.configuration.children, visit);
     }
   }
@@ -54,12 +53,12 @@ export function analyzeFormTree(message: MessageModel): { submitId: string | und
   let hasFields = false;
 
   forEachComponent(message.root.children, component => {
-    if (component.type === "button") {
+    if (component.type === MessageComponentTypeValue.Button) {
       const action = message.actions[component.id];
       if (action && isFormSubmitAction(action.action, action.params)) {
         submitIds.push(component.id);
       }
-    } else if (component.type === "field") {
+    } else if (component.type === MessageComponentTypeValue.Field || component.type === MessageComponentTypeValue.Choice) {
       hasFields = true;
     }
   });
@@ -185,7 +184,7 @@ function createDecoyField(controller: MessageFormController): HTMLInputElement {
     id: RENDER_MAPS_TO_HONEYPOT,
     mapsTo: RENDER_MAPS_TO_HONEYPOT,
     element: control,
-    getValue: () => control.value,
+    getValue: () => ({ type: ProfileAttributeType.STRING, value: control.value }),
     validate: () => null,
     setError: () => undefined,
     focus: () => undefined,

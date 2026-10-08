@@ -1,7 +1,8 @@
 import { MessageHeightType, MessageHeightValue, MessageWidthType } from "./model";
-import type { MessageColor, MessageInputType } from "./types";
+import type { MessageChoiceLayout, MessageColor, MessageHorizontalAlignment, MessageInputType } from "./types";
 import {
   MessageAspectRatioValue,
+  MessageChoiceLayoutValue,
   MessageFormatValue,
   MessageHorizontalAlignmentValue,
   MessageInputTypeValue,
@@ -56,3 +57,10 @@ export const DEFAULT_INPUT_RADIUS = 8;
 export const DEFAULT_INPUT_BORDER_WIDTH = 0;
 export const DEFAULT_INPUT_BACKGROUND_COLOR: [string, string] = ["#FFFFFFFF", "#1C1C1EFF"];
 export const DEFAULT_INPUT_BORDER_COLOR: [string, string] = ["#C7C7CCFF", "#48484AFF"];
+
+export const DEFAULT_CHOICE_LAYOUT: MessageChoiceLayout = MessageChoiceLayoutValue.Vertical;
+/** A choice holds its options where a field of the same form starts: at the beginning of the line. */
+export const DEFAULT_CHOICE_ALIGN: MessageHorizontalAlignment = MessageHorizontalAlignmentValue.Left;
+export const DEFAULT_CHOICE_SPACING = 8;
+/** Borrowed from the input border so an unstyled choice matches the fields around it. */
+export const DEFAULT_CHOICE_CHECKED_COLOR: [string, string] = DEFAULT_INPUT_BORDER_COLOR;

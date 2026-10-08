@@ -1,39 +1,7 @@
 {
-  "engines" : {
-    "node" : "^24 || ^26"
-  },
-  "main" : "index.js",
-  "repository" : {
-
-  },
-  "license" : "Proprietary",
-  "majorVersion" : "5",
-  "dependencies" : {
-    "express" : "^4.17.1",
-    "webpack" : "^5.110.3",
-    "@swc\/jest" : "^0.2.37",
-    "jest" : "^30.4.2",
-    "css-loader" : "^7",
-    "cross-env" : "^7.0.3",
-    "@types\/jest" : "^30.0.0",
-    "@types\/node" : "^24",
-    "terser-webpack-plugin" : "^5",
-    "html-loader" : "^5",
-    "typedoc" : "^0.28.20",
-    "dts-css-modules-loader" : "^1.2.4",
-    "typescript-ts6" : "npm:typescript@6.0.3",
-    "typescript" : "7.0.2",
-    "webpack-cli" : "^6",
-    "@swc\/core" : "^1.7.0",
-    "webpack-dev-middleware" : "^7",
-    "web-push" : "^3.4.5",
-    "style-loader" : "^4",
-    "jest-environment-jsdom" : "^30.4.1",
-    "webpack-hot-middleware" : "^2.25.0"
-  },
-  "version" : "5.0.0",
   "private" : true,
-  "name" : "batch-webpush-sdk",
+  "majorVersion" : "5",
+  "main" : "index.js",
   "devDependencies" : {
     "@stryker-mutator\/core" : "^9.6.1",
     "fake-indexeddb" : "^6.2.5",
@@ -48,6 +16,37 @@
     "oxfmt" : "^0.66.0"
   },
   "packageManager" : "yarn@3.2.0",
+  "version" : "5.1.0",
+  "engines" : {
+    "node" : "^24 || ^26"
+  },
+  "license" : "Proprietary",
+  "repository" : {
+
+  },
+  "dependencies" : {
+    "express" : "^4.22.3",
+    "webpack" : "^5.110.3",
+    "@swc\/jest" : "^0.2.37",
+    "jest" : "^30.4.2",
+    "css-loader" : "^7",
+    "cross-env" : "^7.0.3",
+    "@types\/jest" : "^30.0.0",
+    "@types\/node" : "^24",
+    "terser-webpack-plugin" : "^5",
+    "html-loader" : "^5",
+    "typedoc" : "^0.28.20",
+    "dts-css-modules-loader" : "^2.0.2",
+    "typescript-ts6" : "npm:typescript@6.0.3",
+    "typescript" : "7.0.2",
+    "webpack-cli" : "^6",
+    "@swc\/core" : "^1.7.0",
+    "webpack-dev-middleware" : "^7",
+    "web-push" : "^3.4.5",
+    "style-loader" : "^4",
+    "jest-environment-jsdom" : "^30.4.1",
+    "webpack-hot-middleware" : "^2.25.0"
+  },
   "scripts" : {
     "build" : "yarn type-check && yarn build-webpack",
     "doc" : "cd public\/types\/ && node ..\/..\/scripts\/typedoc-ts6.mjs --tsconfig ..\/..\/tsconfig.typedoc.json --out ..\/..\/..\/web-api-reference --name \"Batch SDK - Web\" --readme ..\/..\/documentation_public_readme.md --excludeExternals --excludePrivate .\/*.d.ts",
@@ -56,5 +55,6 @@
     "type-check" : "tsc --build && tsc -p src\/lib\/shared\/tsconfig.json && tsc -p src\/lib\/dom\/tsconfig.json && tsc -p src\/lib\/worker\/tsconfig.json",
     "\/\/" : "All scripts here are overwritten for the open source release. Edit public_repo_skeleton\/package.overlay.json5 if you need to edit scripts part of the OSS release.",
     "lint:report" : "oxlint --config .oxlintrc.json --type-aware -f json"
-  }
+  },
+  "name" : "batch-webpush-sdk"
 }

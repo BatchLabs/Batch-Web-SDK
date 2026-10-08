@@ -1,20 +1,42 @@
-import type { MessageBorderStyle, MessageInputModel, MessageModel } from "com.batch.dom/render/model/model";
-import { RENDER_LOG_MODULE, RENDER_MAPS_TO_EMAIL_ADDRESS } from "com.batch.dom/render/render-constants";
+import { ATTRIBUTE_KINDS, type MessageInputAttributeType } from "com.batch.dom/render/model/attribute-kinds";
+import type { MessageInputModel, MessageModel } from "com.batch.dom/render/model/model";
+import { RENDER_LOG_MODULE, RENDER_MAPS_TO_EMAIL_ADDRESS, RENDER_MAPS_TO_PHONE_NUMBER } from "com.batch.dom/render/render-constants";
+import type { FormFieldValue } from "com.batch.shared/actions/contracts";
 import { Consts } from "com.batch.shared/constants/user";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import { applyBorderBoxStyles, applyTextElementStyles, createElement } from "../component-helpers";
-import { applyResponsiveBox, applyResponsiveLength, applyThemePair, isTransparentColor, setResponsivePair } from "../dom-utils";
+import { applyResponsiveBox, applyThemePair, setResponsivePair } from "../dom-utils";
 import type { FormRenderContext } from "../form-setup";
 import { applyFlexItemWidth } from "../style-utils";
-import { createErrorNode, createFieldWrapper, registerField } from "./field-helpers";
+import { applyFocusVeil, createErrorNode, createFieldWrapper, registerField, renderFieldLabel } from "./field-helpers";
 import { getInputDescriptor, MessageInputDescriptor } from "./input-types";
+
+/** Format each native slot holds its value to, whatever the `fieldType`: the submit drops what it refuses. */
+const NATIVE_SLOT_REGEXES: Readonly<Partial<Record<string, RegExp>>> = {
+  [RENDER_MAPS_TO_EMAIL_ADDRESS]: Consts.EmailAddressRegexp,
+  [RENDER_MAPS_TO_PHONE_NUMBER]: Consts.PhoneNumberRegexp,
+};
+
+/** An entry the kind refuses carries nothing: the cascade already refuses it, and a bogus typed value must never ship. */
+function inputValueOf(attributeType: MessageInputAttributeType, text: string): FormFieldValue | null {
+  if (attributeType === ProfileAttributeType.STRING) {
+    return { type: ProfileAttributeType.STRING, value: text };
+  }
+  return ATTRIBUTE_KINDS[attributeType].parse(text.trim());
+}
+
+/** A decimal keyboard in a comma locale (iOS in French) has no `.` key, so a float reads a comma as its separator when no dot is typed. */
+function entryText(attributeType: MessageInputAttributeType, text: string): string {
+  return attributeType === ProfileAttributeType.FLOAT && !text.includes(".") ? text.replace(",", ".") : text;
+}
 
 export function renderInput(component: MessageInputModel, message: MessageModel, context: FormRenderContext): HTMLElement {
   const form = context.form;
 
   const conf = component.configuration;
-  const descriptor = getInputDescriptor(conf.inputType);
+  const descriptor = getInputDescriptor(conf.inputType, conf.attributeType);
   const wrapper = createFieldWrapper("input");
   applyResponsiveBox(wrapper, "iam-margin", conf.placement.margin, conf.placement.marginDesktop);
   applyFlexItemWidth(wrapper, { percent: conf.width }, conf.align);
@@ -27,25 +49,15 @@ export function renderInput(component: MessageInputModel, message: MessageModel,
   const visibleLabelText = labelText && conf.labelVisible ? labelText : undefined;
 
   if (labelText) {
-    const label = createElement("label", "iam-field-label");
-    label.htmlFor = domId;
-    label.textContent = labelText;
-    if (visibleLabelText !== undefined) {
-      // A shown label and its field expose the same explicit name.
-      label.setAttribute("aria-label", visibleLabelText);
-      if (component.required) {
-        // The star is `aria-hidden`: `aria-required` on the control carries the semantics.
-        const marker = createElement("span", "iam-field-label-required");
-        marker.setAttribute("aria-hidden", "true");
-        marker.textContent = "*";
-        label.append(marker);
-      }
-    } else {
-      label.classList.add("iam-field-label--hidden");
-    }
-    applyThemePair(label, "iam-label-color", conf.labelColor, "inherit");
-    applyResponsiveLength(label, "iam-label-font-size", conf.labelFontSize, conf.labelFontSizeDesktop);
-    wrapper.appendChild(label);
+    wrapper.appendChild(
+      renderFieldLabel({
+        tag: "label",
+        htmlFor: domId,
+        text: labelText,
+        required: component.required,
+        label: conf,
+      })
+    );
   }
 
   const control = createElement("input", "iam-input");
@@ -61,6 +73,9 @@ export function renderInput(component: MessageInputModel, message: MessageModel,
     control.placeholder = placeholder;
   }
   control.setAttribute("aria-label", visibleLabelText ?? placeholderText ?? component.id);
+  if (component.required) {
+    control.setAttribute("aria-required", "true");
+  }
   if (conf.placeholderColor) {
     applyThemePair(control, "iam-placeholder-color", conf.placeholderColor);
     // Opacity 1: the 0.6 default only applies to a placeholder that inherits the text color.
@@ -68,7 +83,9 @@ export function renderInput(component: MessageInputModel, message: MessageModel,
   }
 
   applyBorderBoxStyles(control, { style: conf.style });
-  applyFocusRing(control, conf.style);
+  if (applyFocusVeil(control, conf.style)) {
+    control.classList.add("iam-input--focus-ring");
+  }
   applyTextElementStyles(control, { style: conf.style, fontStyle: conf.fontStyle });
   // A CSS variable, so the stylesheet can raise it to the 16px floor that prevents the iOS Safari autozoom.
   setResponsivePair(
@@ -90,8 +107,8 @@ export function renderInput(component: MessageInputModel, message: MessageModel,
     id: component.id,
     mapsTo: component.mapsTo,
     required: component.required,
-    validation: component.validation,
-    nativeRegexes: resolveNativeRegexes(component, descriptor),
+    regexes: resolveRegexes(component, descriptor),
+    errorTextId: component.validation?.errorId,
     maxLength,
     minLength: resolveMinLength(component, maxLength),
     invalidTextKey: descriptor.invalidTextKey,
@@ -99,7 +116,10 @@ export function renderInput(component: MessageInputModel, message: MessageModel,
     element: wrapper,
     errorNode,
     errorClass: "iam-input--error",
-    getValue: () => control.value,
+    getValue: () => inputValueOf(conf.attributeType, entryText(conf.attributeType, control.value)),
+    validatedText: () => entryText(conf.attributeType, control.value),
+    // A string goes through its kind too: the native maxLength counts characters, the server bytes.
+    accepts: (text: string) => ATTRIBUTE_KINDS[conf.attributeType].parse(text) !== null,
   });
 
   control.addEventListener("input", () => form.handleInput(component.id));
@@ -136,36 +156,24 @@ function applyInputSemantics(control: HTMLInputElement, descriptor: MessageInput
   control.setAttribute("enterkeyhint", descriptor.enterKeyHint);
 }
 
-/** The veil that darkens the focus ring, per theme. Dark mode lightens instead. */
-const FOCUS_VEIL_LIGHT = "rgba(0, 0, 0, 0.32)";
-const FOCUS_VEIL_DARK = "rgba(255, 255, 255, 0.32)";
-
-function applyFocusRing(control: HTMLElement, style: MessageBorderStyle): void {
-  const [light, dark = light] = style.borderColor;
-  if (style.borderWidth <= 0 || isTransparentColor(light) || isTransparentColor(dark)) {
-    return;
-  }
-
-  control.classList.add("iam-input--focus-ring");
-  control.style.setProperty("--iam-focus-veil", FOCUS_VEIL_LIGHT);
-  control.style.setProperty("--iam-focus-veil-dark", FOCUS_VEIL_DARK);
-}
-
-function resolveNativeRegexes(component: MessageInputModel, descriptor: MessageInputDescriptor): readonly string[] | undefined {
+/** A payload regex adds to the native rules and never replaces them: the value must match each one. */
+function resolveRegexes(component: MessageInputModel, descriptor: MessageInputDescriptor): readonly string[] {
+  const candidates = [descriptor.nativeRegex, NATIVE_SLOT_REGEXES[component.mapsTo]?.source, component.validation?.regex];
   const sources: string[] = [];
-  if (descriptor.nativeRegex) {
-    sources.push(descriptor.nativeRegex);
+  for (const source of candidates) {
+    if (source && !sources.includes(source)) {
+      sources.push(source);
+    }
   }
-  if (component.mapsTo === RENDER_MAPS_TO_EMAIL_ADDRESS && !sources.includes(Consts.EmailAddressRegexp.source)) {
-    sources.push(Consts.EmailAddressRegexp.source);
-  }
-  return sources.length > 0 ? sources : undefined;
+  return sources;
 }
 
 function resolveMaxLength(component: MessageInputModel, descriptor: MessageInputDescriptor): number {
-  const targetMaxLength =
-    component.mapsTo === RENDER_MAPS_TO_EMAIL_ADDRESS ? Consts.EmailAddressMaxLength : Consts.AttributeStringMaxLengthCEP;
-  const nativeMaxLength = Math.min(descriptor.nativeMaxLength, targetMaxLength);
+  // The descriptor already carries the bound of its own type; only the native email slot lowers it further.
+  const nativeMaxLength =
+    component.mapsTo === RENDER_MAPS_TO_EMAIL_ADDRESS
+      ? Math.min(descriptor.nativeMaxLength, Consts.EmailAddressMaxLength)
+      : descriptor.nativeMaxLength;
   const servingMaxLength = component.configuration.maxLength;
   return servingMaxLength !== undefined ? Math.min(nativeMaxLength, servingMaxLength) : nativeMaxLength;
 }

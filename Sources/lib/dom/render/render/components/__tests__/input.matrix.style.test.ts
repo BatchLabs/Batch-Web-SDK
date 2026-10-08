@@ -13,31 +13,11 @@ import {
   DEFAULT_INPUT_BORDER_WIDTH,
   DEFAULT_INPUT_RADIUS,
 } from "com.batch.dom/render/model/normalizer-defaults";
-import type { MessageAnyComponentPayload, MessageInputPayload, MessagePayload } from "com.batch.dom/render/model/types";
-import { FORM_SUBMIT_ACTION_ID } from "com.batch.dom/render/render-constants";
+import type { MessageInputPayload } from "com.batch.dom/render/model/types";
 import { colorToCSS } from "com.batch.dom/render/render/dom-utils";
+import { buildFieldMessage } from "com.batch.dom/render/test-utils/factories/field-payloads";
 import type { ComponentMatrixSpec, PropMatrix } from "com.batch.dom/render/test-utils/prop-matrix";
 import { expectResponsivePair, expectThemePair, runComponentMatrix, selectFirstChild } from "com.batch.dom/render/test-utils/prop-matrix";
-
-const FIELD_ID = "email";
-const FIELD_MAP_TO = "email_map";
-const SUBMIT_ID = "cta";
-
-function buildFieldMessage(patch: Record<string, unknown>, message?: Partial<MessagePayload>): MessagePayload {
-  const children = [
-    { type: "field", id: FIELD_ID, mapsTo: FIELD_MAP_TO, placeholderId: "email_ph", labelTextId: "email_label", ...patch },
-    { type: "button", id: SUBMIT_ID },
-  ];
-  return {
-    format: "modal",
-    root: { children: children as unknown as MessageAnyComponentPayload[] },
-    closeOptions: {},
-    texts: { email_label: "Email", email_ph: "you@example.com" },
-    urls: {},
-    actions: { [SUBMIT_ID]: { action: FORM_SUBMIT_ACTION_ID } },
-    ...message,
-  };
-}
 
 const control = (el: HTMLElement): HTMLInputElement => el.querySelector(".iam-input") as HTMLInputElement;
 const label = (el: HTMLElement): HTMLElement => el.querySelector(".iam-field-label") as HTMLElement;

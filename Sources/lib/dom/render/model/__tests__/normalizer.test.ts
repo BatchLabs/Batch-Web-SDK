@@ -391,6 +391,20 @@ describe("diagnostic labels keyed by component.property", () => {
 
   const withChild = (child: Record<string, unknown>): MessagePayload => ({ ...base(), root: { children: [comp(child)] } });
 
+  const choiceCase = (extra: Record<string, unknown>): MessagePayload =>
+    withChild({
+      type: "choice",
+      id: "c",
+      mapsTo: "sports",
+      choiceType: "checkbox",
+      attributeType: "array",
+      values: [
+        { id: "one", attributeValue: "one" },
+        { id: "two", attributeValue: "two" },
+      ],
+      ...extra,
+    });
+
   const cases: { label: string; payload: MessagePayload }[] = [
     { label: `"message.position"`, payload: { ...base(), position: "diagonal" as never } },
     { label: `"root.backgroundColor"`, payload: { ...base(), root: { children: [], backgroundColor: ["nope"] as never } } },
@@ -452,6 +466,7 @@ describe("diagnostic labels keyed by component.property", () => {
     { label: `"columns.radius[0]"`, payload: withChild({ type: "columns", children: [], radius: [NaN] }) },
     { label: `field.validation:`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", validation: { regex: "(" } }) },
     { label: `"field.fieldType"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", fieldType: "date" }) },
+    { label: `"field.attributeType"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", attributeType: "money" }) },
     { label: `"field.width"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", width: 200 }) },
     { label: `"field.align"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", align: "diagonal" }) },
     { label: `"field.textColor"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", textColor: ["nope"] }) },
@@ -470,6 +485,25 @@ describe("diagnostic labels keyed by component.property", () => {
     { label: `"field.padding[0]"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", padding: [NaN] }) },
     { label: `"field.paddingDesktop"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", paddingDesktop: [NaN] }) },
     { label: `"field.hideOn"`, payload: withChild({ type: "field", id: "f", mapsTo: "f_map", hideOn: "tablet" }) },
+    { label: `"choice.layout"`, payload: choiceCase({ layout: "diagonal" }) },
+    { label: `"choice.align"`, payload: choiceCase({ align: "diagonal" }) },
+    { label: `"choice.spacing"`, payload: choiceCase({ spacing: NaN }) },
+    { label: `"choice.attributeType"`, payload: choiceCase({ attributeType: "money" }) },
+    { label: `"choice.minMax"`, payload: choiceCase({ minMax: [3, 2] }) },
+    { label: `"choice.checkedColor"`, payload: choiceCase({ checkedColor: ["nope"] }) },
+    { label: `"choice.borderColor"`, payload: choiceCase({ borderColor: ["nope"] }) },
+    { label: `"choice.textColor"`, payload: choiceCase({ textColor: ["nope"] }) },
+    { label: `"choice.fontSize"`, payload: choiceCase({ fontSize: NaN }) },
+    { label: `"choice.fontSizeDesktop"`, payload: choiceCase({ fontSizeDesktop: -1 }) },
+    { label: `"choice.labelFontSize"`, payload: choiceCase({ labelFontSize: -1 }) },
+    { label: `"choice.labelColor"`, payload: choiceCase({ labelColor: ["nope"] }) },
+    { label: `"choice.margin[0]"`, payload: choiceCase({ margin: [NaN] }) },
+    { label: `"choice.marginDesktop"`, payload: choiceCase({ marginDesktop: [NaN] }) },
+    { label: `"choice.validation"`, payload: choiceCase({ validation: { regex: "^a" } }) },
+    { label: `"choice.hideOn"`, payload: choiceCase({ hideOn: "tablet" }) },
+    { label: `"choice.values[1]"`, payload: choiceCase({ values: [{ id: "one", attributeValue: "one" }, { id: "two" }] }) },
+    { label: `"choice.choiceType"`, payload: choiceCase({ choiceType: "dropdown" }) },
+    { label: `"choice.labelFontSizeDesktop"`, payload: choiceCase({ labelFontSizeDesktop: -1 }) },
   ];
 
   test.each(cases)("logs $label", ({ label, payload }) => {

@@ -1,11 +1,14 @@
 /* eslint-env jest */
 
+import { PROFILE_ATTRIBUTE_TYPES } from "com.batch.dom/render/model/attribute-kinds";
 import type { MessageInputModel, MessageLabelModel } from "com.batch.dom/render/model/model";
 import { normalizeMessage } from "com.batch.dom/render/model/normalizer";
-import type { MessageAnyComponentPayload, MessagePayload } from "com.batch.dom/render/model/types";
+import type { MessageComponentPayload, MessagePayload } from "com.batch.dom/render/model/types";
+import { TEXT_FIELD_ATTRIBUTE_TYPES } from "com.batch.dom/render/test-utils/factories/attribute-type-cases";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
-function makeMessage(children: MessageAnyComponentPayload[]): MessagePayload {
+function makeMessage(children: MessageComponentPayload[]): MessagePayload {
   return {
     format: "modal",
     root: { children },
@@ -15,6 +18,21 @@ function makeMessage(children: MessageAnyComponentPayload[]): MessagePayload {
 
 function getField(message: ReturnType<typeof normalizeMessage>, index = 0): MessageInputModel {
   const field = message.root.children[index];
+  if (field.type !== "field") {
+    throw new Error(`expected a field, got "${field.type}"`);
+  }
+  return field;
+}
+
+/** Normalizes a single field payload and returns its model, or `null` when the normalizer dropped it. */
+function normalizeField(patch: Record<string, unknown> = {}): MessageInputModel | null {
+  const children = normalizeMessage(
+    makeMessage([{ type: "field", id: "f", mapsTo: "f_map", ...patch } as unknown as MessageComponentPayload])
+  ).root.children;
+  const field = children[0];
+  if (field === undefined) {
+    return null;
+  }
   if (field.type !== "field") {
     throw new Error(`expected a field, got "${field.type}"`);
   }
@@ -39,9 +57,9 @@ describe("schema discriminants", () => {
   test("legacy input/column/form discriminants are ignored, no node rendered", () => {
     const message = normalizeMessage(
       makeMessage([
-        { type: "input", id: "email" } as unknown as MessageAnyComponentPayload,
-        { type: "column", children: [] } as unknown as MessageAnyComponentPayload,
-        { type: "form", children: [] } as unknown as MessageAnyComponentPayload,
+        { type: "input", id: "email" } as unknown as MessageComponentPayload,
+        { type: "column", children: [] } as unknown as MessageComponentPayload,
+        { type: "form", children: [] } as unknown as MessageComponentPayload,
       ])
     );
 
@@ -99,6 +117,18 @@ describe("field normalizer", () => {
     expect(getField(message, 3).configuration.maxLength).toBeUndefined();
   });
 
+  test("a typed field ignores minMax, which would bound its characters instead of its value", () => {
+    const message = normalizeMessage(
+      makeMessage([
+        { type: "field", id: "age", mapsTo: "age", attributeType: "integer", minMax: [18, 99] },
+        { type: "field", id: "name", mapsTo: "name", attributeType: "string", minMax: [2, 40] },
+      ])
+    );
+
+    expect(getField(message, 0).configuration).toMatchObject({ minLength: undefined, maxLength: undefined });
+    expect(getField(message, 1).configuration).toMatchObject({ minLength: 2, maxLength: 40 });
+  });
+
   test("falls back to text for an unknown fieldType", () => {
     const message = normalizeMessage(
       // @ts-expect-error invalid fieldType on purpose
@@ -134,20 +164,28 @@ describe("field normalizer", () => {
     expect(getField(message, 2).configuration.placeholderId).toBeUndefined();
   });
 
-  test("width outside (0, 100] falls back to the full width", () => {
-    const message = normalizeMessage(
-      makeMessage([
-        { type: "field", id: "a", mapsTo: "a_map", width: 50 },
-        { type: "field", id: "b", mapsTo: "b_map", width: 0 },
-        { type: "field", id: "c", mapsTo: "c_map", width: 150 },
-        { type: "field", id: "d", mapsTo: "d_map" },
-      ])
-    );
+  test.each<[string, Record<string, unknown>, number, boolean]>([
+    ["a width inside the range", { width: 50 }, 50, false],
+    ["a width at the accepted bound", { width: 100 }, 100, false],
+    ["an absent width", {}, 100, false],
+    ["a string width", { width: "50" }, 100, true],
+    ["a NaN width", { width: Number.NaN }, 100, true],
+    ["an infinite width", { width: Number.POSITIVE_INFINITY }, 100, true],
+    ["a zero width", { width: 0 }, 100, true],
+    ["a negative width", { width: -5 }, 100, true],
+    ["a fractional width past the bound", { width: 100.5 }, 100, true],
+    ["a width far past the bound", { width: 150 }, 100, true],
+  ])("%s is normalized against the (0, 100] range", (_label, patch, expected, diagnosed) => {
+    const debug = jest.spyOn(Log, "debug").mockImplementation(() => undefined);
+    try {
+      expect(normalizeField(patch)?.configuration.width).toBe(expected);
 
-    expect(getField(message, 0).configuration.width).toBe(50);
-    expect(getField(message, 1).configuration.width).toBe(100);
-    expect(getField(message, 2).configuration.width).toBe(100);
-    expect(getField(message, 3).configuration.width).toBe(100);
+      // The fallback equals the accepted bound, so only the diagnostic tells a kept width from a replaced one.
+      const diagnostics = debug.mock.calls.filter(([, line]) => String(line).includes('"field.width"'));
+      expect(diagnostics.length > 0).toBe(diagnosed);
+    } finally {
+      debug.mockRestore();
+    }
   });
 
   test("labelFontSize defaults to 14 and labelColor falls back to the text color", () => {
@@ -171,7 +209,7 @@ describe("field normalizer", () => {
 
   test("hideOn on a field is never kept in the model", () => {
     const message = normalizeMessage(
-      makeMessage([{ type: "field", id: "a", mapsTo: "a_map", hideOn: "mobile" } as unknown as MessageAnyComponentPayload])
+      makeMessage([{ type: "field", id: "a", mapsTo: "a_map", hideOn: "mobile" } as unknown as MessageComponentPayload])
     );
 
     expect("hideOn" in getField(message)).toBe(false);
@@ -180,9 +218,7 @@ describe("field normalizer", () => {
   test("a stray hideOn on a field is diagnosed, but a field without it stays silent", () => {
     const debug = jest.spyOn(Log, "debug").mockImplementation(() => undefined);
     try {
-      normalizeMessage(
-        makeMessage([{ type: "field", id: "a", mapsTo: "a_map", hideOn: "mobile" } as unknown as MessageAnyComponentPayload])
-      );
+      normalizeMessage(makeMessage([{ type: "field", id: "a", mapsTo: "a_map", hideOn: "mobile" } as unknown as MessageComponentPayload]));
       expect(debug).toHaveBeenCalledWith(expect.anything(), expect.stringContaining("not supported on fields"));
 
       debug.mockClear();
@@ -207,6 +243,66 @@ describe("field normalizer — fieldType mapping", () => {
     } finally {
       debug.mockRestore();
     }
+  });
+});
+
+describe("field normalizer — attributeType", () => {
+  test.each(TEXT_FIELD_ATTRIBUTE_TYPES)("a %s field carries its declared type", type => {
+    expect(normalizeField({ attributeType: type })?.configuration.attributeType).toBe(PROFILE_ATTRIBUTE_TYPES[type]);
+  });
+
+  test.each(["boolean", "array"])("a %s field is dropped: no text control writes it", attributeType => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+    try {
+      expect(normalizeField({ attributeType })).toBeNull();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test.each([
+    ["email", "integer"],
+    ["phone", "date"],
+    ["email", "url"],
+  ])("a %s field cannot write a %s", (fieldType, attributeType) => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+    try {
+      expect(normalizeField({ fieldType, attributeType })).toBeNull();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test.each(["integer", "float", "date", "url"])("a native slot refuses a %s: it holds a string", attributeType => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+    try {
+      expect(normalizeField({ mapsTo: "$email_address", attributeType })).toBeNull();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("a native slot keeps a string, declared or implied", () => {
+    expect(normalizeField({ mapsTo: "$email_address", attributeType: "string" })?.mapsTo).toBe("$email_address");
+    expect(normalizeField({ mapsTo: "$email_address" })?.configuration.attributeType).toBe(ProfileAttributeType.STRING);
+  });
+
+  test("the array gate runs before the fieldType gate", () => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+    try {
+      expect(normalizeField({ fieldType: "email", attributeType: "array" })).toBeNull();
+      expect(warn).toHaveBeenCalledWith(expect.anything(), expect.stringContaining("array"));
+      expect(warn).not.toHaveBeenCalledWith(expect.anything(), expect.stringContaining("email field"));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("an unknown type falls back to string like an unknown fieldType falls back to text", () => {
+    const field = normalizeField({ attributeType: "money", fieldType: "weird" });
+
+    expect(field?.configuration.attributeType).toBe(ProfileAttributeType.STRING);
+    expect(field?.configuration.inputType).toBe("text");
   });
 });
 
@@ -393,26 +489,102 @@ describe("field normalizer — validation surface", () => {
     }
   });
 
+  test("a regex at the length bound is kept, one past it is dropped", () => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+    try {
+      const atBound = `^${"a".repeat(198)}$`;
+      const pastBound = `^${"a".repeat(199)}$`;
+
+      expect(normalizeField({ validation: { regex: atBound } })?.validation).toEqual({ regex: atBound });
+      expect(normalizeField({ validation: { regex: pastBound, errorId: "f_err" } })?.validation).toEqual({ errorId: "f_err" });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   test("an empty errorId is dropped", () => {
     const message = normalizeMessage(makeMessage([{ type: "field", id: "a", mapsTo: "a_map", validation: { regex: "^a$", errorId: "" } }]));
 
     expect(getField(message).validation).toEqual({ regex: "^a$" });
   });
 
-  test("a non-object validation resolves to no validation model", () => {
-    const message = normalizeMessage(
-      makeMessage([{ type: "field", id: "a", mapsTo: "a_map", validation: "nope" as unknown as { regex?: string } }])
-    );
+  test.each<[string, unknown]>([
+    ["a string", "nope"],
+    ["null", null],
+    ["an array", ["^a$"]],
+  ])("%s validation resolves to no validation model, without throwing", (_label, validation) => {
+    expect(normalizeField({ validation })?.validation).toBeUndefined();
+  });
+});
 
-    expect(getField(message).validation).toBeUndefined();
+describe("field normalizer — ReDoS scanner", () => {
+  let warn: jest.SpyInstance;
+
+  beforeEach(() => {
+    warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
   });
 
-  test("a null validation is guarded (short-circuit) and resolves to no validation model", () => {
-    const message = normalizeMessage(
-      makeMessage([{ type: "field", id: "a", mapsTo: "a_map", validation: null as unknown as { regex?: string } }])
-    );
+  afterEach(() => {
+    warn.mockRestore();
+  });
 
-    expect(getField(message).validation).toBeUndefined();
+  /** The scanner runs before `RegExp()`, so a dropped source keeps only its sibling errorId on the model. */
+  function validationOf(regex: string): { regex?: string; errorId?: string } | undefined {
+    return normalizeField({ validation: { regex, errorId: "e" } })?.validation;
+  }
+
+  test.each([
+    ["^(a+)+$"],
+    ["^(a|aa)+$"],
+    // The inner alternation is promoted through the outer group, which carries the repeat.
+    ["^((a|aa))+$"],
+    ["^(a*)*$"],
+    ["^(a?)+$"],
+    // A `{n}` quantifier inside the group makes the frame ambiguous.
+    ["^(a{2})+$"],
+    // A `{n,}` repeat on the ambiguous group counts like `+`.
+    ["^(a|b){2,}$"],
+    // A non-capturing group is still a frame.
+    ["^(?:a|aa)+$"],
+    // Named group: the prefix must be skipped up to `>`, never further, or the group below is missed.
+    ["^aaaaaaaaaa(?<n>b)(c|cc)+$"],
+    // Lookbehind followed by a literal `>`: the prefix stops at `=`, it does not run to that `>`.
+    ["^(?<=x)(a|aa)+>$"],
+    // Unbalanced `)`: the scanner tolerates it and `RegExp()` rejects the source.
+    ["^a)b$"],
+    // Same with an ambiguous root frame: the scanner must not pop the root, and `RegExp()` still rejects it.
+    ["^a+)b$"],
+    // The class ends at `]`, so the ambiguous group after it is still scanned.
+    ["^[ab](a|aa)+$"],
+  ])("drops %s", regex => {
+    expect(validationOf(regex)).toEqual({ errorId: "e" });
+  });
+
+  test.each([
+    // The root frame is never repeated.
+    ["^a+|b+$"],
+    // The quantifier is inside a character class.
+    ["^[a+]+$"],
+    // The alternation is inside the class, so the repeated group is not ambiguous.
+    ["^([a|b])+$"],
+    // Escaped parentheses are literals and open no frame.
+    ["^\\(a|aa\\)+$"],
+    ["^\\(a\\)+$"],
+    ["^(?=.*a)[a-z]+$"],
+    ["^(?!x)[a-z]+$"],
+    // A lookaround prefix inside a repeated group: `?`, `=` and `!` are prefix, not quantifiers.
+    ["^((?=a)b)+$"],
+    ["^((?!a)b)+$"],
+    ["^((?<=a)b)+$"],
+    ["^(?<=a)b+$"],
+    // Named group: the prefix length is read from the `>` position.
+    ["^(?<year>\\d{4})-\\d{2}$"],
+    // `?` is not a repeat: the ambiguous group matches at most once.
+    ["^(a|aa)?$"],
+    // A repeated group with no inner alternation or quantifier.
+    ["^(ab)+$"],
+  ])("keeps %s", regex => {
+    expect(validationOf(regex)).toEqual({ regex, errorId: "e" });
   });
 });
 
@@ -451,7 +623,7 @@ describe("field normalizer — mapsTo boundary", () => {
   ])("drops a field whose mapsTo is %s and warns", (_label, payload) => {
     const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
     try {
-      const message = normalizeMessage(makeMessage([payload as unknown as MessageAnyComponentPayload]));
+      const message = normalizeMessage(makeMessage([payload as unknown as MessageComponentPayload]));
 
       expect(message.root.children).toHaveLength(0);
       expect(warn).toHaveBeenCalledWith(expect.anything(), `[normalizer] ignored field "a": missing "mapsTo"`);
@@ -501,6 +673,15 @@ describe("responsive props normalization", () => {
     const text = getText(message);
     expect(text.configuration.fontStyle.fontSizeDesktop).toBeUndefined();
     expect(text.configuration.placement.marginDesktop).toBeUndefined();
+  });
+
+  test("a field paddingDesktop override keeps negative offsets, an invalid one resolves to undefined", () => {
+    expect(normalizeField({ paddingDesktop: [-4, 2] })?.configuration.placement.paddingDesktop).toEqual([-4, 2, -4, 2]);
+    expect(normalizeField({ paddingDesktop: ["a"] })?.configuration.placement.paddingDesktop).toBeUndefined();
+  });
+
+  test("a field padding keeps negative offsets", () => {
+    expect(normalizeField({ padding: [-4, 2] })?.configuration.placement.padding).toEqual([-4, 2, -4, 2]);
   });
 
   test("hideOn only accepts mobile and desktop", () => {

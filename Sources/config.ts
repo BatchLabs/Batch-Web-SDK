@@ -8,7 +8,7 @@ import {
   BUILD_WS_URL,
 } from "./build-config";
 
-export const SDK_API_LVL = "40";
+export const SDK_API_LVL = "51";
 export const SDK_VERSION = BUILD_SDK_VERSION;
 export const SDK_MAJOR_VERSION = BUILD_SDK_MAJOR_VERSION;
 export const SDK_DISMISS_NOTIF_AFTER = 30;

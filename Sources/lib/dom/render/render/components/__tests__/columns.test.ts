@@ -1,13 +1,13 @@
 /* eslint-env jest */
 
-import type { MessageColumnsModel, MessageAnyComponentModel } from "com.batch.dom/render/model/model";
+import type { MessageColumnsModel, MessageComponentModel } from "com.batch.dom/render/model/model";
 import { renderColumns } from "com.batch.dom/render/render/components/columns";
 
 function makeColumns(overrides?: {
   spacing?: number;
   contentAlign?: "top" | "center" | "bottom";
   ratios?: number[];
-  children?: (MessageAnyComponentModel | null)[];
+  children?: (MessageComponentModel | null)[];
   margin?: [number, number, number, number];
 }): MessageColumnsModel {
   const children = overrides?.children ?? [makeSpacer(), makeSpacer()];
@@ -30,7 +30,7 @@ function makeColumns(overrides?: {
   };
 }
 
-function makeSpacer(): MessageAnyComponentModel {
+function makeSpacer(): MessageComponentModel {
   return { type: "spacer", configuration: { placement: { height: "auto" } } };
 }
 
@@ -121,7 +121,7 @@ describe("renderColumns", () => {
   });
 
   test("renderChild is not called for null children", () => {
-    const children: (MessageAnyComponentModel | null)[] = [makeSpacer(), null, makeSpacer()];
+    const children: (MessageComponentModel | null)[] = [makeSpacer(), null, makeSpacer()];
     const renderChild = jest.fn().mockReturnValue(document.createElement("div"));
     const el = renderColumns(makeColumns({ children, ratios: [1, 1, 1] }), renderChild);
     expect(renderChild).toHaveBeenCalledTimes(2);

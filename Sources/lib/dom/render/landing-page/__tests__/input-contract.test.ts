@@ -1,14 +1,18 @@
 /* eslint-env jest */
 
 import {
+  RENDER_HONEYPOT_MAX_LENGTH,
   RENDER_TEXT_KEY_FORM_INVALID_EMAIL_ERROR,
   RENDER_TEXT_KEY_FORM_INVALID_ERROR,
   RENDER_TEXT_KEY_FORM_REQUIRED_ERROR,
 } from "com.batch.dom/render/render-constants";
+import { ATTRIBUTE_TYPE_CASES, ATTRIBUTE_TYPES, collectedSample } from "com.batch.dom/render/test-utils/factories/attribute-type-cases";
 import { Consts } from "com.batch.shared/constants/user";
 import { Log } from "com.batch.shared/logger";
+import { PartialUpdateObject, ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 import { WS_URL } from "../../../../../config";
+import type { FormFieldValue } from "../../contracts";
 import {
   buildFormSubmittedEvent,
   buildMessagingEventParams,
@@ -86,7 +90,11 @@ describe("buildMessagingEventParams", () => {
         ctaId: "submit",
         ctaType: "button",
         action: "batch.form.submit",
-        value: { $email_address: "jean.dupont@example.com", $phone_number: "+33612345678", firstname: "Jean" },
+        value: {
+          $email_address: { type: ProfileAttributeType.STRING, value: "jean.dupont@example.com" },
+          $phone_number: { type: ProfileAttributeType.STRING, value: "+33612345678" },
+          firstname: { type: ProfileAttributeType.STRING, value: "Jean" },
+        },
       },
       EVENT_DATA
     );
@@ -100,11 +108,73 @@ describe("buildMessagingEventParams", () => {
         ctaId: "submit",
         ctaType: "button",
         action: "batch.form.submit",
-        value: { $email_adress: "typo@batch.com", city: "Paris" },
+        value: {
+          $email_adress: { type: ProfileAttributeType.STRING, value: "typo@batch.com" },
+          city: { type: ProfileAttributeType.STRING, value: "Paris" },
+        },
       },
       EVENT_DATA
     );
     expect(params?.value).toBe('{"city":"Paris"}');
+  });
+
+  it("reports the checked values of a choice group in the CTA value, not the profile operation", () => {
+    const params = buildMessagingEventParams(
+      {
+        type: "clicked",
+        ctaId: "submit",
+        ctaType: "button",
+        action: "batch.form.submit",
+        value: {
+          sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis"], $remove: ["golf"] } },
+          newsletter: { type: ProfileAttributeType.BOOLEAN, value: true },
+        },
+      },
+      EVENT_DATA
+    );
+    expect(params?.value).toBe('{"sports":["tennis"],"newsletter":true}');
+  });
+
+  it("reports the picked number of a typed field in the CTA value, not its carrier", () => {
+    const params = buildMessagingEventParams(
+      {
+        type: "clicked",
+        ctaId: "submit",
+        ctaType: "button",
+        action: "batch.form.submit",
+        value: { budget: { type: ProfileAttributeType.FLOAT, value: 2.5 } },
+      },
+      EVENT_DATA
+    );
+    expect(params?.value).toBe('{"budget":2.5}');
+  });
+
+  it("a submit CTA reports a date as ISO and a URL as its href", () => {
+    const params = buildMessagingEventParams(
+      {
+        type: "clicked",
+        ctaId: "submit",
+        ctaType: "button",
+        action: "batch.form.submit",
+        value: { when: ATTRIBUTE_TYPE_CASES.date.accepted[0].value, site: ATTRIBUTE_TYPE_CASES.url.accepted[0].value },
+      },
+      EVENT_DATA
+    );
+    expect(JSON.parse(String(params?.value))).toEqual({ when: "2026-09-09T00:00:00.000Z", site: "https://batch.com/pricing" });
+  });
+
+  it("a group that only removes reports an empty pick", () => {
+    const params = buildMessagingEventParams(
+      {
+        type: "clicked",
+        ctaId: "submit",
+        ctaType: "button",
+        action: "batch.form.submit",
+        value: { sports: { type: ProfileAttributeType.ARRAY, value: { $remove: ["golf"] } } },
+      },
+      EVENT_DATA
+    );
+    expect(params?.value).toBe('{"sports":[]}');
   });
 
   it("omits value when the submit CTA was tapped on an untouched form", () => {
@@ -158,16 +228,17 @@ describe("resolveInputEndpoint", () => {
 
 describe("buildFormSubmittedEvent", () => {
   const DATE = new Date("2026-07-24T14:32:41.880Z");
+  const str = (value: string): FormFieldValue => ({ type: ProfileAttributeType.STRING, value });
 
   it("splits natives into their own slot and type-suffixes the custom attributes", () => {
     const event = buildFormSubmittedEvent(
       "5f1c8e2a-0001-4a1b-9c3d-000000000003",
       DATE,
       {
-        $email_address: "jean.dupont@example.com",
-        firstname: "Jean",
-        consent_newsletter: true,
-        topics: ["news", "offers"],
+        $email_address: str("jean.dupont@example.com"),
+        firstname: str("Jean"),
+        consent_newsletter: { type: ProfileAttributeType.BOOLEAN, value: true },
+        topics: { type: ProfileAttributeType.ARRAY, value: { $add: ["news", "offers"] } },
       },
       EVENT_DATA
     );
@@ -181,44 +252,27 @@ describe("buildFormSubmittedEvent", () => {
         custom_attributes: {
           "firstname.s": "Jean",
           "consent_newsletter.b": true,
-          "topics.a": ["news", "offers"],
+          "topics.a": { $add: ["news", "offers"] },
         },
       },
     });
   });
 
-  it("types and converts every value the profile vocabulary covers", () => {
-    const event = buildFormSubmittedEvent(
-      "id-1",
-      DATE,
-      {
-        firstname: "Jean",
-        consent_newsletter: true,
-        topics: ["news", "offers"],
-        birthday: new Date("1988-04-12T00:00:00.000Z"),
-        website: new URL("https://batch.com/pricing"),
-        children_count: 2,
-        basket_total: 19.99,
-      },
-      EVENT_DATA
-    );
+  it.each(ATTRIBUTE_TYPES)("a %s value lands under its suffix with its JSON shape", type => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { k: collectedSample(type) }, EVENT_DATA);
+    const { wire } = ATTRIBUTE_TYPE_CASES[type];
 
-    expect(event.params.custom_attributes).toEqual({
-      "firstname.s": "Jean",
-      "consent_newsletter.b": true,
-      "topics.a": ["news", "offers"],
-      "birthday.t": 576806400000,
-      "website.u": "https://batch.com/pricing",
-      "children_count.i": 2,
-      "basket_total.f": 19.99,
-    });
+    expect(JSON.parse(JSON.stringify(event.params.custom_attributes))).toEqual({ [`k.${wire.suffix}`]: wire.json });
   });
 
   it("keeps a date and a URL serializable in the request body", () => {
     const event = buildFormSubmittedEvent(
       "id-1",
       DATE,
-      { birthday: new Date("1988-04-12T00:00:00.000Z"), website: new URL("https://batch.com/pricing") },
+      {
+        birthday: { type: ProfileAttributeType.DATE, value: new Date("1988-04-12T00:00:00.000Z") },
+        website: { type: ProfileAttributeType.URL, value: new URL("https://batch.com/pricing") },
+      },
       EVENT_DATA
     );
 
@@ -228,111 +282,36 @@ describe("buildFormSubmittedEvent", () => {
     });
   });
 
-  it("maps $phone_number to the phone_number slot", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $phone_number: "+33612345678" }, EVENT_DATA);
-    expect(event.params.phone_number).toBe("+33612345678");
-    expect(event.params.custom_attributes).toBeUndefined();
-  });
-
-  it("normalizes the email alias to the fixed `email` param key", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: "jean.dupont@example.com" }, EVENT_DATA);
-    expect(event.params.email).toBe("jean.dupont@example.com");
-    expect(event.params.email_address).toBeUndefined();
-    expect(event.params.custom_attributes).toBeUndefined();
-  });
-
-  it("drops an unrecognized native alias instead of forwarding it raw", () => {
+  it("a URL travels as the profile would store it: credentials and fragment kept", () => {
     const event = buildFormSubmittedEvent(
       "id-1",
       DATE,
-      { $email_adress: "jean.dupont@example.com", $region: "FR", firstname: "Jean" },
+      { k: { type: ProfileAttributeType.URL, value: new URL("https://user:pw@batch.com/p#frag") } },
       EVENT_DATA
     );
-    expect(event.params.email_adress).toBeUndefined();
-    expect(event.params.region).toBeUndefined();
-    expect(Object.keys(event.params)).toEqual(["ed", "custom_attributes"]);
-    expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
+
+    expect(event.params.custom_attributes).toEqual({ "k.u": "https://user:pw@batch.com/p#frag" });
   });
 
-  it("maps $honeypot to the root honeypot param, next to the natives", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $honeypot: "i am a bot", $email_address: "jean.dupont@example.com" }, EVENT_DATA);
+  it("keeps an integral float a float, which a shape-typed value could not do", () => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { budget: { type: ProfileAttributeType.FLOAT, value: 2 } }, EVENT_DATA);
 
-    expect(event.params.honeypot).toBe("i am a bot");
-    expect(event.params.email).toBe("jean.dupont@example.com");
-    expect(event.params.$honeypot).toBeUndefined();
-    expect(event.params.custom_attributes).toBeUndefined();
+    expect(event.params.custom_attributes).toEqual({ "budget.f": 2 });
   });
 
-  it("caps the honeypot value instead of dropping it on the profile contract", () => {
-    const oversized = "x".repeat(Consts.AttributeStringMaxLengthCEP + 100);
-
-    const event = buildFormSubmittedEvent("id-1", DATE, { $honeypot: oversized }, EVENT_DATA);
-
-    expect(event.params.honeypot).toBe("x".repeat(255));
-  });
-
-  it("drops a native whose value violates the profile contract of its slot", () => {
-    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
-
-    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: true, firstname: "Jean" }, EVENT_DATA);
-
-    expect(event.params.email).toBeUndefined();
-    expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
-    expect(warn).toHaveBeenCalledWith(
-      expect.anything(),
-      `[landing] dropping form field with mapsTo "$email_address": the value violates profile attribute constraints`
-    );
-  });
-
-  it.each([
-    ["a malformed address", "not-an-email"],
-    ["an empty value", ""],
-    ["an address over the email maximum", `${"a".repeat(Consts.EmailAddressMaxLength)}@example.com`],
-    ["a non-string value", 42],
-  ])("drops $email_address carrying %s", (_label, value) => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: value, firstname: "Jean" }, EVENT_DATA);
-
-    expect(event.params.email).toBeUndefined();
-    expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
-  });
-
-  it("keeps an $email_address the profile editor would accept", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: "jean.dupont@example.com" }, EVENT_DATA);
-    expect(event.params.email).toBe("jean.dupont@example.com");
-  });
-
-  it("leaves the phone format and the non-string verdict to the server", () => {
-    const kept = buildFormSubmittedEvent("id-1", DATE, { $phone_number: "0612345678" }, EVENT_DATA);
-    expect(kept.params.phone_number).toBe("0612345678");
-
-    for (const value of ["", "a".repeat(Consts.AttributeStringMaxLengthCEP + 1)]) {
-      const dropped = buildFormSubmittedEvent("id-1", DATE, { $phone_number: value }, EVENT_DATA);
-      expect(dropped.params.phone_number).toBeUndefined();
-    }
-
-    const tolerated = buildFormSubmittedEvent("id-1", DATE, { $phone_number: 42 }, EVENT_DATA);
-    expect(tolerated.params.phone_number).toBe(42);
-  });
-
-  it("converts a native slot value like a profile attribute, so a Date or a URL never ships raw", () => {
-    const url = buildFormSubmittedEvent("id-1", DATE, { $phone_number: new URL("https://batch.com/pricing") }, EVENT_DATA);
-    expect(url.params.phone_number).toBe("https://batch.com/pricing");
-
-    const date = buildFormSubmittedEvent("id-1", DATE, { $phone_number: new Date("1988-04-12T00:00:00.000Z") }, EVENT_DATA);
-    expect(date.params.phone_number).toBe(576806400000);
-  });
-
-  it.each([
-    ["an empty string", ""],
-    ["a string over the maximum", "a".repeat(Consts.AttributeStringMaxLengthCEP + 1)],
-    ["an empty array", []],
-    ["an array over the maximum size", Array.from({ length: Consts.MaxEventArrayItems + 1 }, (_, i) => `v${i}`)],
-    ["an array holding an invalid entry", ["ok", ""]],
-    ["a URL over the maximum length", new URL(`https://batch.com/${"a".repeat(Consts.AttributeURLMaxLength)}`)],
+  it.each<[string, FormFieldValue]>([
+    ["an empty string", str("")],
+    ["a string over the maximum", str("a".repeat(Consts.AttributeStringMaxLengthCEP + 1))],
+    [
+      "a URL over the maximum length",
+      { type: ProfileAttributeType.URL, value: new URL(`https://batch.com/${"a".repeat(Consts.AttributeURLMaxLength)}`) },
+    ],
+    ["a NaN integer", { type: ProfileAttributeType.INTEGER, value: Number.NaN }],
+    ["a NaN float", { type: ProfileAttributeType.FLOAT, value: Number.NaN }],
   ])("drops a custom attribute carrying %s and keeps its valid siblings", (_label, value) => {
     const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
 
-    const event = buildFormSubmittedEvent("id-1", DATE, { rejected: value, firstname: "Jean" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { rejected: value, firstname: str("Jean") }, EVENT_DATA);
 
     expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
     expect(event.params.ed).toEqual(EVENT_DATA);
@@ -340,38 +319,304 @@ describe("buildFormSubmittedEvent", () => {
       expect.anything(),
       `[landing] dropping form field with mapsTo "rejected": the value violates profile attribute constraints`
     );
+    warn.mockRestore();
   });
 
   it("serializes the boundary-valid custom values the profile accepts", () => {
     const maxString = "a".repeat(Consts.AttributeStringMaxLengthCEP);
     const maxArray = Array.from({ length: Consts.MaxEventArrayItems }, (_, i) => `v${i}`);
-    const event = buildFormSubmittedEvent("id-1", DATE, { firstname: maxString, topics: maxArray }, EVENT_DATA);
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { firstname: str(maxString), topics: { type: ProfileAttributeType.ARRAY, value: { $add: maxArray } } },
+      EVENT_DATA
+    );
 
-    expect(event.params.custom_attributes).toEqual({ "firstname.s": maxString, "topics.a": maxArray });
+    expect(event.params.custom_attributes).toEqual({ "firstname.s": maxString, "topics.a": { $add: maxArray } });
+
+    const maxURL = new URL(`https://batch.com/${"a".repeat(Consts.AttributeURLMaxLength - "https://batch.com/".length)}`);
+    expect(maxURL.href).toHaveLength(Consts.AttributeURLMaxLength);
+    const url = buildFormSubmittedEvent("id-1", DATE, { k: { type: ProfileAttributeType.URL, value: maxURL } }, EVENT_DATA);
+    expect(url.params.custom_attributes).toEqual({ "k.u": maxURL.href });
+
+    const negativeZero = buildFormSubmittedEvent("id-1", DATE, { k: { type: ProfileAttributeType.FLOAT, value: -0 } }, EVENT_DATA);
+    expect(Object.is(JSON.parse(JSON.stringify(negativeZero.params.custom_attributes))["k.f"], 0)).toBe(true);
+    expect(JSON.stringify(negativeZero.params)).toContain('"k.f":0');
+
+    // The wire tolerates the exponential notation `JSON.stringify` picks for an integer this large.
+    const huge = buildFormSubmittedEvent("id-1", DATE, { k: { type: ProfileAttributeType.INTEGER, value: 1e21 } }, EVENT_DATA);
+    expect(JSON.stringify(huge.params)).toContain('"k.i":1e+21');
   });
 
-  it("tolerates in a custom attribute exactly what the profile tolerates", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { topics: ["ok", 42] as never, firstname: "Jean" }, EVENT_DATA);
+  it("ships a checkbox group as a partial array update, its members as written", () => {
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      {
+        sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["Foot", "Basketball_dev"], $remove: ["foot"] } },
+        newsletter: { type: ProfileAttributeType.BOOLEAN, value: false },
+        fav_sport: str("tennis_dev"),
+      },
+      EVENT_DATA
+    );
 
-    expect(event.params.custom_attributes).toEqual({ "topics.a": ["ok", 42], "firstname.s": "Jean" });
+    expect(event.params.custom_attributes).toEqual({
+      "sports.a": { $add: ["Foot", "Basketball_dev"], $remove: ["foot"] },
+      "newsletter.b": false,
+      "fav_sport.s": "tennis_dev",
+    });
   });
 
-  it("normalizes an array like the profile does, before applying the size limit", () => {
-    const withDuplicate = [...Array.from({ length: Consts.MaxEventArrayItems }, (_, i) => `v${i}`), "V0"];
-    const event = buildFormSubmittedEvent("id-1", DATE, { topics: withDuplicate }, EVENT_DATA);
+  it("maps $topic_preferences to the topic_preferences slot as a partial update", () => {
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { $topic_preferences: { type: ProfileAttributeType.ARRAY, value: { $add: ["News"], $remove: ["promo"] } } },
+      EVENT_DATA
+    );
 
-    const serialized = event.params.custom_attributes?.["topics.a"];
-    expect(serialized).toHaveLength(Consts.MaxEventArrayItems);
-    expect(serialized).toEqual([...Array.from({ length: Consts.MaxEventArrayItems - 1 }, (_, i) => `v${i + 1}`), "v0"]);
+    expect(event.params.topic_preferences).toEqual({ $add: ["news"], $remove: ["promo"] });
+    expect(event.params.custom_attributes).toBeUndefined();
   });
 
-  it("lowercases and deduplicates array values exactly like the profile", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { topics: ["A", "a", "B"] }, EVENT_DATA);
-    expect(event.params.custom_attributes).toEqual({ "topics.a": ["a", "B".toLocaleLowerCase()] });
+  it("drops a $topic_preferences value that is not a partial array update", () => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+
+    const event = buildFormSubmittedEvent("id-1", DATE, { $topic_preferences: str("news") }, EVENT_DATA);
+
+    expect(event.params).not.toHaveProperty("topic_preferences");
+    expect(warn).toHaveBeenCalledWith(
+      expect.anything(),
+      `[landing] dropping form field with mapsTo "$topic_preferences": the value violates profile attribute constraints`
+    );
+    warn.mockRestore();
+  });
+
+  it("drops $topic_preferences carrying a member that is not a topic", () => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { $topic_preferences: { type: ProfileAttributeType.ARRAY, value: { $add: ["news"], $remove: ["Sports & more"] } } },
+      EVENT_DATA
+    );
+
+    expect(event.params).not.toHaveProperty("topic_preferences");
+    expect(warn).toHaveBeenCalledWith(
+      expect.anything(),
+      `[landing] dropping form field with mapsTo "$topic_preferences": the value violates profile attribute constraints`
+    );
+    warn.mockRestore();
+  });
+
+  it("drops $topic_preferences with more members than the topic cap in one branch", () => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+    const topics = Array.from({ length: Consts.MaxTopicPreferenceItems + 1 }, (_, i) => `t${i}`);
+
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { $topic_preferences: { type: ProfileAttributeType.ARRAY, value: { $add: topics } } },
+      EVENT_DATA
+    );
+
+    expect(event.params).not.toHaveProperty("topic_preferences");
+    warn.mockRestore();
+  });
+
+  it("bounds each branch on its own, not their sum", () => {
+    const add = Array.from({ length: 20 }, (_, i) => `a${i}`);
+    const remove = Array.from({ length: 20 }, (_, i) => `r${i}`);
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { sports: { type: ProfileAttributeType.ARRAY, value: { $add: add, $remove: remove } } },
+      EVENT_DATA
+    );
+
+    expect(event.params.custom_attributes).toEqual({ "sports.a": { $add: add, $remove: remove } });
+  });
+  it("omits the empty branch of a partial array update", () => {
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis"], $remove: [] } } },
+      EVENT_DATA
+    );
+
+    expect(event.params.custom_attributes).toEqual({ "sports.a": { $add: ["tennis"] } });
+  });
+
+  it("deduplicates inside a branch, keeping the last occurrence", () => {
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { sports: { type: ProfileAttributeType.ARRAY, value: { $remove: ["golf", "tennis", "golf"] } } },
+      EVENT_DATA
+    );
+
+    expect(event.params.custom_attributes).toEqual({ "sports.a": { $remove: ["tennis", "golf"] } });
+
+    const added = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["a", "b", "a"] } } },
+      EVENT_DATA
+    );
+
+    expect(added.params.custom_attributes).toEqual({ "sports.a": { $add: ["b", "a"] } });
+  });
+
+  it.each<[string, PartialUpdateObject]>([
+    ["both branches empty", { $add: [], $remove: [] }],
+    [
+      "more values than the array cap in the removed branch",
+      { $remove: Array.from({ length: Consts.MaxEventArrayItems + 1 }, (_, i) => `r${i}`) },
+    ],
+    ["an invalid value in a branch", { $add: ["ok"], $remove: [""] }],
+    ["26 values in a single branch", { $add: Array.from({ length: Consts.MaxEventArrayItems + 1 }, (_, i) => `a${i}`) }],
+  ])("drops a partial array update with %s", (_label, value) => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { sports: { type: ProfileAttributeType.ARRAY, value }, firstname: str("Jean") },
+      EVENT_DATA
+    );
+
+    expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
+    warn.mockRestore();
+  });
+
+  it("maps $phone_number to the phone_number slot", () => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { $phone_number: str("+33612345678") }, EVENT_DATA);
+    expect(event.params.phone_number).toBe("+33612345678");
+    expect(event.params.custom_attributes).toBeUndefined();
+  });
+
+  it("normalizes the email alias to the fixed `email` param key", () => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: str("jean.dupont@example.com") }, EVENT_DATA);
+    expect(event.params.email).toBe("jean.dupont@example.com");
+    expect(event.params).not.toHaveProperty("email_address");
+    expect(event.params.custom_attributes).toBeUndefined();
+  });
+
+  it("drops an unrecognized native alias instead of forwarding it raw", () => {
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { $email_adress: str("jean.dupont@example.com"), $region: str("FR"), firstname: str("Jean") },
+      EVENT_DATA
+    );
+    expect(event.params).not.toHaveProperty("email_adress");
+    expect(event.params).not.toHaveProperty("region");
+    expect(Object.keys(event.params)).toEqual(["ed", "custom_attributes"]);
+    expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
+  });
+
+  it("maps $honeypot to the root honeypot param, next to the natives", () => {
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { $honeypot: str("i am a bot"), $email_address: str("jean.dupont@example.com") },
+      EVENT_DATA
+    );
+
+    expect(event.params.honeypot).toBe("i am a bot");
+    expect(event.params.email).toBe("jean.dupont@example.com");
+    expect(event.params).not.toHaveProperty("$honeypot");
+    expect(event.params.custom_attributes).toBeUndefined();
+  });
+
+  it("caps the honeypot value instead of dropping it on the profile contract", () => {
+    const oversized = "x".repeat(Consts.AttributeStringMaxLengthCEP + 100);
+
+    const event = buildFormSubmittedEvent("id-1", DATE, { $honeypot: str(oversized) }, EVENT_DATA);
+
+    expect(event.params.honeypot).toBe("x".repeat(RENDER_HONEYPOT_MAX_LENGTH));
+  });
+
+  it("$honeypot carrying anything but a string is dropped without a word", () => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+
+    const event = buildFormSubmittedEvent("id-1", DATE, { $honeypot: { type: ProfileAttributeType.BOOLEAN, value: true } }, EVENT_DATA);
+
+    expect(event.params.honeypot).toBeUndefined();
+    expect(event.params.custom_attributes).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it.each([
+    ["a malformed address", "not-an-email"],
+    ["an empty value", ""],
+    ["an address over the email maximum", `${"a".repeat(Consts.EmailAddressMaxLength)}@example.com`],
+  ])("drops $email_address carrying %s", (_label, value) => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: str(value), firstname: str("Jean") }, EVENT_DATA);
+
+    expect(event.params.email).toBeUndefined();
+    expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
+  });
+
+  it("keeps an $email_address the profile editor would accept", () => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: str("jean.dupont@example.com") }, EVENT_DATA);
+    expect(event.params.email).toBe("jean.dupont@example.com");
+  });
+
+  it("a native email at the length bound travels, one character past it does not", () => {
+    const atBound = `${"a".repeat(Consts.EmailAddressMaxLength - "@example.com".length)}@example.com`;
+    expect(atBound).toHaveLength(Consts.EmailAddressMaxLength);
+    const kept = buildFormSubmittedEvent("id-1", DATE, { $email_address: str(atBound) }, EVENT_DATA);
+    expect(kept.params.email).toBe(atBound);
+
+    const overBound = `a${atBound}`;
+    expect(overBound).toHaveLength(Consts.EmailAddressMaxLength + 1);
+    const dropped = buildFormSubmittedEvent("id-1", DATE, { $email_address: str(overBound), firstname: str("Jean") }, EVENT_DATA);
+    expect(dropped.params.email).toBeUndefined();
+    expect(dropped.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
+  });
+
+  it("holds $phone_number to the profile phone format", () => {
+    const kept = buildFormSubmittedEvent("id-1", DATE, { $phone_number: str("+33612345678") }, EVENT_DATA);
+    expect(kept.params.phone_number).toBe("+33612345678");
+
+    for (const value of ["0612345678", "", "+", "+3361234567890123", "+33 6 12 34 56 78"]) {
+      const dropped = buildFormSubmittedEvent("id-1", DATE, { $phone_number: str(value) }, EVENT_DATA);
+      expect(dropped.params.phone_number).toBeUndefined();
+      expect(dropped.params.custom_attributes).toBeUndefined();
+    }
+  });
+
+  it.each<[string, FormFieldValue]>([
+    ["a partial array update", { type: ProfileAttributeType.ARRAY, value: { $add: ["a@b.c"] } }],
+    ["a typed number", { type: ProfileAttributeType.INTEGER, value: 3 }],
+    ["a boolean", { type: ProfileAttributeType.BOOLEAN, value: true }],
+    ["a date", { type: ProfileAttributeType.DATE, value: new Date("1988-04-12T00:00:00.000Z") }],
+    ["a url", { type: ProfileAttributeType.URL, value: new URL("https://batch.com/pricing") }],
+  ])("drops %s aimed at a native slot, which holds one string", (_label, value) => {
+    const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
+
+    for (const [mapsTo, slot] of [
+      ["$email_address", "email"],
+      ["$phone_number", "phone_number"],
+    ]) {
+      const event = buildFormSubmittedEvent("id-1", DATE, { [mapsTo]: value }, EVENT_DATA);
+
+      expect(event.params).not.toHaveProperty(slot);
+      expect(event.params.custom_attributes).toBeUndefined();
+    }
+    warn.mockRestore();
   });
 
   it("still emits the lead when every field is rejected", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { firstname: "", topics: [] }, EVENT_DATA);
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { firstname: str(""), topics: { type: ProfileAttributeType.ARRAY, value: {} } },
+      EVENT_DATA
+    );
 
     expect(event.params.custom_attributes).toBeUndefined();
     expect(Object.keys(event.params)).toEqual(["ed"]);
@@ -379,30 +624,46 @@ describe("buildFormSubmittedEvent", () => {
   });
 
   it("omits custom_attributes entirely when every field is native", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: "a@b.co" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { $email_address: str("a@b.co") }, EVENT_DATA);
     expect(Object.keys(event.params)).toEqual(["ed", "email"]);
   });
 
   it("keeps a custom key verbatim, including an email-looking prefix", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { email_a1b2c3d4e5: "typed by hand" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { email_a1b2c3d4e5: str("typed by hand") }, EVENT_DATA);
     expect(event.params.email).toBeUndefined();
     expect(event.params.custom_attributes).toEqual({ "email_a1b2c3d4e5.s": "typed by hand" });
   });
 
+  it("an uppercase key is another key", () => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { Firstname: str("Jean"), firstname: str("Jeanne") }, EVENT_DATA);
+    expect(event.params.custom_attributes).toEqual({ "Firstname.s": "Jean", "firstname.s": "Jeanne" });
+  });
+
+  it("a custom key named email lives next to the native email slot", () => {
+    const event = buildFormSubmittedEvent("id-1", DATE, { email: str("typed"), $email_address: str("a@b.co") }, EVENT_DATA);
+    expect(event.params.email).toBe("a@b.co");
+    expect(event.params.custom_attributes).toEqual({ "email.s": "typed" });
+  });
+
   it("drops a bare $, which names no native at all", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { $: "nowhere", firstname: "Jean" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { $: str("nowhere"), firstname: str("Jean") }, EVENT_DATA);
     expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
     expect(Object.keys(event.params)).toEqual(["ed", "custom_attributes"]);
   });
 
   it("drops a field whose mapsTo collides with a reserved envelope key", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { ed: "malicious", custom_attributes: "malicious", firstname: "Jean" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent(
+      "id-1",
+      DATE,
+      { ed: str("malicious"), custom_attributes: str("malicious"), firstname: str("Jean") },
+      EVENT_DATA
+    );
     expect(event.params.ed).toEqual(EVENT_DATA);
     expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
   });
 
   it("keeps a mapsTo that collides with an inherited object member: only `ed` and `custom_attributes` are reserved", () => {
-    const event = buildFormSubmittedEvent("id-1", DATE, { toString: "Jean", constructor: "Dupont" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { toString: str("Jean"), constructor: str("Dupont") }, EVENT_DATA);
     expect(event.params.custom_attributes).toEqual({ "toString.s": "Jean", "constructor.s": "Dupont" });
   });
 
@@ -410,7 +671,7 @@ describe("buildFormSubmittedEvent", () => {
     const event = buildFormSubmittedEvent(
       "id-1",
       DATE,
-      { $ed: "malicious", $custom_attributes: "malicious", firstname: "Jean" },
+      { $ed: str("malicious"), $custom_attributes: str("malicious"), firstname: str("Jean") },
       EVENT_DATA
     );
     expect(event.params.ed).toEqual(EVENT_DATA);
@@ -425,15 +686,16 @@ describe("buildFormSubmittedEvent", () => {
   ])("drops a custom mapsTo carrying %s", (_label, mapsTo) => {
     const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
 
-    const event = buildFormSubmittedEvent("id-1", DATE, { [mapsTo]: "value", firstname: "Jean" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { [mapsTo]: str("value"), firstname: str("Jean") }, EVENT_DATA);
 
     expect(event.params.custom_attributes).toEqual({ "firstname.s": "Jean" });
     expect(warn).toHaveBeenCalledWith(expect.anything(), expect.stringContaining(mapsTo));
+    warn.mockRestore();
   });
 
   it("keeps the longest key the attribute grammar allows", () => {
     const mapsTo = "a".repeat(30);
-    const event = buildFormSubmittedEvent("id-1", DATE, { [mapsTo]: "value" }, EVENT_DATA);
+    const event = buildFormSubmittedEvent("id-1", DATE, { [mapsTo]: str("value") }, EVENT_DATA);
     expect(event.params.custom_attributes).toEqual({ [`${mapsTo}.s`]: "value" });
   });
 });
@@ -452,6 +714,18 @@ describe("isInputResponseBody", () => {
 
   it("accepts unknown error codes for forward compatibility", () => {
     expect(isInputResponseBody({ results: [{ id: "a", status: "rejected", errors: { f: "brand_new_code" } }] })).toBe(true);
+  });
+
+  it("refuses a results list as soon as one entry is malformed", () => {
+    const wellFormed = { id: "a", status: "accepted" };
+    expect(isInputResponseBody({ results: [wellFormed, { id: "b", status: "maybe" }] })).toBe(false);
+    expect(isInputResponseBody({ results: [wellFormed, { id: "b", status: "rejected" }] })).toBe(true);
+  });
+
+  it("refuses an error map as soon as one code is not a string", () => {
+    const results = (errors: Record<string, unknown>): unknown => ({ results: [{ id: "a", status: "rejected", errors }] });
+    expect(isInputResponseBody(results({ email: "invalid_email", phone: 42 }))).toBe(false);
+    expect(isInputResponseBody(results({ email: "invalid_email", phone: "invalid_phone" }))).toBe(true);
   });
 
   it.each([
@@ -498,6 +772,13 @@ describe("localizeFieldErrors", () => {
   it("prefers serving overrides over the embedded l10n", () => {
     const texts = { ...TEXTS, [RENDER_TEXT_KEY_FORM_REQUIRED_ERROR]: "Champ requis !" };
     expect(localizeFieldErrors({ field: "required" }, texts)).toEqual({ field: "Champ requis !" });
+  });
+
+  it("treats a declared empty text as no override: the visitor reads the embedded copy, not a blank error", () => {
+    const texts = { ...TEXTS, [RENDER_TEXT_KEY_FORM_REQUIRED_ERROR]: "" };
+    expect(localizeFieldErrors({ field: "required" }, texts)).toEqual({
+      field: landingDefaultTexts("en")[RENDER_TEXT_KEY_FORM_REQUIRED_ERROR],
+    });
   });
 
   it("falls back to the embedded english text when the key is missing from texts", () => {

@@ -1,9 +1,9 @@
 /* eslint-env jest */
 
-import type { MessageModel, MessageAnyComponentModel } from "com.batch.dom/render/model/model";
+import type { MessageModel, MessageComponentModel } from "com.batch.dom/render/model/model";
 import { buildComponentTree } from "com.batch.dom/render/render/builder";
 
-function makeMessage(children: MessageAnyComponentModel[] = []): MessageModel {
+function makeMessage(children: MessageComponentModel[] = []): MessageModel {
   return {
     format: "modal",
     position: "center",
@@ -22,11 +22,11 @@ function makeMessage(children: MessageAnyComponentModel[] = []): MessageModel {
   };
 }
 
-function makeSpacer(): MessageAnyComponentModel {
+function makeSpacer(): MessageComponentModel {
   return { type: "spacer", configuration: { placement: { height: "auto" } } };
 }
 
-function makeDivider(): MessageAnyComponentModel {
+function makeDivider(): MessageComponentModel {
   return {
     type: "divider",
     configuration: {
@@ -36,7 +36,7 @@ function makeDivider(): MessageAnyComponentModel {
   };
 }
 
-function makeLabel(): MessageAnyComponentModel {
+function makeLabel(): MessageComponentModel {
   return {
     type: "text",
     id: "title",
@@ -49,7 +49,7 @@ function makeLabel(): MessageAnyComponentModel {
   };
 }
 
-function makeButton(): MessageAnyComponentModel {
+function makeButton(): MessageComponentModel {
   return {
     type: "button",
     id: "cta",
@@ -71,7 +71,7 @@ function makeButton(): MessageAnyComponentModel {
   };
 }
 
-function makeImage(): MessageAnyComponentModel {
+function makeImage(): MessageComponentModel {
   return {
     type: "image",
     id: "hero",
@@ -142,7 +142,7 @@ describe("buildComponentTree", () => {
   });
 
   test("columns renders recursively", () => {
-    const columns: MessageAnyComponentModel = {
+    const columns: MessageComponentModel = {
       type: "columns",
       configuration: {
         style: { spacing: 0, contentAlign: "top", backgroundColor: ["#00000000"], radius: [0, 0, 0, 0] },

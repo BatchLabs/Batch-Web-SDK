@@ -5,19 +5,21 @@ import { ProfileKeys } from "com.batch.shared/parameters/keys.profile";
 import {
   isPartialUpdateArrayObject,
   PartialUpdateArrayObject,
+  PartialUpdateObject,
   ProfileAttributeType,
   ProfileCustomDataAttributes,
   ProfileNativeAttributeType,
   ProfileNativeDataAttribute,
 } from "com.batch.shared/profile/profile-data-types";
 
-type PartialUpdateObject = { $add?: Array<string>; $remove?: Array<string> };
-type CustomAttributeType = {
+export type CustomAttributeType = {
   [key: string]: string | boolean | number | Array<string> | PartialUpdateObject | null;
 };
 
 export interface ProfileDataChangedParameters {
   email?: string | null;
+  /** No web editor writes it; declared because `withNativeAttributes` indexes this interface by every native key. */
+  phone_number?: string | null;
   email_marketing?: string;
   device_timezone?: string;
   device_language?: string;

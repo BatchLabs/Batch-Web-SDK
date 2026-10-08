@@ -2,8 +2,10 @@
 
 import type { ActionOutcome } from "com.batch.dom/render/contracts";
 import type { MessageModel } from "com.batch.dom/render/model/model";
-import { FormFieldHandle, FormSubmitRuntime, MessageFieldValue, MessageFormController } from "com.batch.dom/render/runtime/form-controller";
+import { FormFieldHandle, FormSubmitRuntime, MessageFormController } from "com.batch.dom/render/runtime/form-controller";
+import type { FormFieldValue } from "com.batch.shared/actions/contracts";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 const SUBMIT_REF = "submit";
 
@@ -51,7 +53,7 @@ function makeResolver(outcome: ActionOutcome | Error = SUCCESS_OUTCOME): jest.Mo
 
 interface FakeField {
   handle: FormFieldHandle;
-  setValue: (value: MessageFieldValue) => void;
+  setValue: (value: FormFieldValue | null) => void;
   setValidationError: (error: string | null) => void;
   validate: jest.Mock;
   setError: jest.Mock;
@@ -61,7 +63,7 @@ interface FakeField {
 
 function makeField(
   id: string,
-  initial: MessageFieldValue = "",
+  initial: FormFieldValue | null = { type: ProfileAttributeType.STRING, value: "" },
   initialError: string | null = null,
   mapsTo: string = `${id}_map`
 ): FakeField {
@@ -98,7 +100,7 @@ function makeField(
 describe("MessageFormController validation lifecycle", () => {
   test("validateAll surfaces the field's own validation verdict through setError", () => {
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    const field = makeField("name", "", "This field is required.");
+    const field = makeField("name", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
     controller.register(field.handle);
 
     expect(controller.validateAll()).toBe(false);
@@ -111,26 +113,85 @@ describe("MessageFormController validation lifecycle", () => {
 
   test("collectAttributes keys by mapsTo, trims strings and drops whitespace-only values", () => {
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    controller.register(makeField("name", "  Thomas  ", null, "firstname_f6g7h8").handle);
-    controller.register(makeField("blank", "   ").handle);
+    controller.register(makeField("name", { type: ProfileAttributeType.STRING, value: "  Thomas  " }, null, "firstname_f6g7h8").handle);
+    controller.register(makeField("blank", { type: ProfileAttributeType.STRING, value: "   " }).handle);
 
-    expect(controller.collectAttributes()).toEqual({ firstname_f6g7h8: "Thomas" });
+    expect(controller.collectAttributes()).toEqual({ firstname_f6g7h8: { type: ProfileAttributeType.STRING, value: "Thomas" } });
+  });
+
+  test("collectAttributes always reports a boolean, `false` included", () => {
+    const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
+    controller.register(makeField("optin", { type: ProfileAttributeType.BOOLEAN, value: true }, null, "newsletter").handle);
+    controller.register(makeField("optout", { type: ProfileAttributeType.BOOLEAN, value: false }, null, "partners").handle);
+
+    expect(controller.collectAttributes()).toEqual({
+      newsletter: { type: ProfileAttributeType.BOOLEAN, value: true },
+      partners: { type: ProfileAttributeType.BOOLEAN, value: false },
+    });
+  });
+
+  test("collectAttributes keeps a partial array update that carries at least one value and drops an empty one", () => {
+    const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
+    controller.register(
+      makeField("picked", { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis"], $remove: ["golf"] } }, null, "sports").handle
+    );
+    controller.register(makeField("added", { type: ProfileAttributeType.ARRAY, value: { $add: ["running"] } }, null, "hobbies").handle);
+    controller.register(
+      makeField("untouched", { type: ProfileAttributeType.ARRAY, value: { $add: [], $remove: [] } }, null, "topics").handle
+    );
+
+    expect(controller.collectAttributes()).toEqual({
+      sports: { type: ProfileAttributeType.ARRAY, value: { $add: ["tennis"], $remove: ["golf"] } },
+      hobbies: { type: ProfileAttributeType.ARRAY, value: { $add: ["running"] } },
+    });
+  });
+
+  test("collectAttributes carries a date, a url and both typed numbers as they are, and drops a field holding nothing", () => {
+    const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
+    const when = new Date("1988-04-12T00:00:00.000Z");
+    const site = new URL("https://batch.com/pricing");
+    controller.register(makeField("born", { type: ProfileAttributeType.DATE, value: when }, null, "birthdate").handle);
+    controller.register(makeField("site", { type: ProfileAttributeType.URL, value: site }, null, "website").handle);
+    controller.register(makeField("budget", { type: ProfileAttributeType.FLOAT, value: 2 }, null, "budget").handle);
+    controller.register(makeField("visits", { type: ProfileAttributeType.INTEGER, value: 42 }, null, "visit_count").handle);
+    controller.register(makeField("empty", null, null, "nothing").handle);
+
+    expect(controller.collectAttributes()).toEqual({
+      birthdate: { type: ProfileAttributeType.DATE, value: when },
+      website: { type: ProfileAttributeType.URL, value: site },
+      budget: { type: ProfileAttributeType.FLOAT, value: 2 },
+      visit_count: { type: ProfileAttributeType.INTEGER, value: 42 },
+    });
+  });
+
+  test("a field with no profile target validates but writes nothing", () => {
+    const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
+    const barrier = makeField("terms", { type: ProfileAttributeType.BOOLEAN, value: true }, "You must accept the terms.");
+    controller.register({ ...barrier.handle, mapsTo: undefined });
+    const blank = makeField("nickname", { type: ProfileAttributeType.STRING, value: "typed" }, null, "");
+    controller.register(blank.handle);
+    controller.register(makeField("named", { type: ProfileAttributeType.STRING, value: "kept" }, null, "firstname").handle);
+
+    expect(controller.collectAttributes()).toEqual({ firstname: { type: ProfileAttributeType.STRING, value: "kept" } });
+    expect(controller.validateAll()).toBe(false);
+    expect(barrier.setError).toHaveBeenCalledWith("You must accept the terms.");
+    expect(blank.validate).toHaveBeenCalled();
   });
 
   test("collectAttributes keeps the first field of a duplicated mapsTo and warns", () => {
     const warn = jest.spyOn(Log, "warn").mockImplementation(() => undefined);
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    controller.register(makeField("first", "kept", null, "email_a1b2c3").handle);
-    controller.register(makeField("second", "dropped", null, "email_a1b2c3").handle);
+    controller.register(makeField("first", { type: ProfileAttributeType.STRING, value: "kept" }, null, "email_a1b2c3").handle);
+    controller.register(makeField("second", { type: ProfileAttributeType.STRING, value: "dropped" }, null, "email_a1b2c3").handle);
 
-    expect(controller.collectAttributes()).toEqual({ email_a1b2c3: "kept" });
+    expect(controller.collectAttributes()).toEqual({ email_a1b2c3: { type: ProfileAttributeType.STRING, value: "kept" } });
     expect(warn).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('duplicate mapsTo "email_a1b2c3"'));
     warn.mockRestore();
   });
 
   test("handleBlur validates a touched field but leaves a pristine one alone", () => {
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    const field = makeField("email", "", "This field is required.");
+    const field = makeField("email", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
     controller.register(field.handle);
 
     controller.handleBlur("email");
@@ -147,7 +208,7 @@ describe("MessageFormController validation lifecycle", () => {
 
   test("errors appear only on submit; input before submit shows nothing, and clears once corrected", async () => {
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    const field = makeField("name", "", "This field is required.");
+    const field = makeField("name", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
     controller.register(field.handle);
 
     controller.handleInput("name");
@@ -164,7 +225,7 @@ describe("MessageFormController validation lifecycle", () => {
 
   test("handleInput on an unregistered id is a silent no-op", () => {
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    const field = makeField("email", "", "This field is required.");
+    const field = makeField("email", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
     controller.register(field.handle);
 
     expect(() => controller.handleInput("unknown")).not.toThrow();
@@ -173,8 +234,8 @@ describe("MessageFormController validation lifecycle", () => {
 
   test("multiple invalid fields are all flagged while only the first is focused", () => {
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), makeResolver());
-    const first = makeField("first", "", "This field is required.");
-    const second = makeField("second", "", "This field is required.");
+    const first = makeField("first", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
+    const second = makeField("second", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
     controller.register(first.handle);
     controller.register(second.handle);
 
@@ -202,13 +263,13 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "success", message: "Thanks!" });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     await controller.submit();
 
     expect(runtime.setSubmitting).toHaveBeenNthCalledWith(1, true);
     expect(runtime.clearFormMessage).toHaveBeenCalled();
-    expect(resolve).toHaveBeenCalledWith({ email_map: "user@example.com" });
+    expect(resolve).toHaveBeenCalledWith({ email_map: { type: ProfileAttributeType.STRING, value: "user@example.com" } });
     expect(runtime.setSubmitting).toHaveBeenLastCalledWith(false);
     expect(runtime.complete).toHaveBeenCalledWith("Thanks!");
   });
@@ -217,7 +278,7 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "error", message: "Please review.", fieldErrors: { email: "Rejected" } });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    const email = makeField("email", "user@example.com");
+    const email = makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" });
     controller.register(email.handle);
 
     await controller.submit();
@@ -232,7 +293,7 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "error", message: "Please review." });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    const email = makeField("email", "user@example.com");
+    const email = makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" });
     controller.register(email.handle);
 
     await controller.submit();
@@ -248,7 +309,7 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "error" });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     await controller.submit();
 
@@ -260,7 +321,7 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "error", fieldErrors: { email: "Rejected" } });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    const email = makeField("email", "user@example.com");
+    const email = makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" });
     controller.register(email.handle);
 
     await controller.submit();
@@ -277,7 +338,7 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "error", fieldErrors: { ghost: "Nope" } });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    const email = makeField("email", "user@example.com");
+    const email = makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" });
     controller.register(email.handle);
 
     await controller.submit();
@@ -290,7 +351,7 @@ describe("MessageFormController submit", () => {
   test("a rejected submit shows a network error message and re-enables the form", async () => {
     const runtime = makeRuntime();
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, makeResolver(new Error("offline")));
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     await controller.submit();
 
@@ -307,7 +368,7 @@ describe("MessageFormController submit", () => {
       runtime,
       jest.fn(() => Promise.reject("boom"))
     );
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     await controller.submit();
 
@@ -319,7 +380,7 @@ describe("MessageFormController submit", () => {
     const runtime = makeRuntime();
     const resolve = makeResolver({ kind: "form-feedback", status: "error", message: "Please review.", fieldErrors: { ghost: "Nope" } });
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    const email = makeField("email", "user@example.com");
+    const email = makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" });
     controller.register(email.handle);
 
     await controller.submit();
@@ -331,12 +392,29 @@ describe("MessageFormController submit", () => {
   test("a non form-feedback outcome surfaces a generic error message", async () => {
     const runtime = makeRuntime();
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, makeResolver({ kind: "none" }));
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     await controller.submit();
 
     expect(runtime.showFormMessage).toHaveBeenCalledWith("Something went wrong. Please try again.", "error");
     expect(runtime.complete).not.toHaveBeenCalled();
+  });
+
+  test("an outcome of another kind is never read as a form verdict, even when it carries one", async () => {
+    const runtime = makeRuntime();
+    // A custom action registered from plain JS returns an unvalidated outcome: it can carry a success verdict under another kind.
+    const rogue = { kind: "dismiss", status: "success", message: "Thanks!" } as unknown as ActionOutcome;
+    const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, makeResolver(rogue));
+    const email = makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" });
+    controller.register(email.handle);
+
+    await controller.submit();
+
+    expect(runtime.complete).not.toHaveBeenCalled();
+    expect(runtime.showFormMessage).toHaveBeenCalledTimes(1);
+    expect(runtime.showFormMessage).toHaveBeenCalledWith("Something went wrong. Please try again.", "error");
+    expect(email.setError).not.toHaveBeenCalledWith("Thanks!");
+    expect(controller.acceptsSubmit).toBe(true);
   });
 
   test("the network and submit error fallbacks are overridable through reserved texts keys", async () => {
@@ -349,13 +427,13 @@ describe("MessageFormController submit", () => {
 
     const networkRuntime = makeRuntime();
     const networkController = new MessageFormController(message, SUBMIT_REF, networkRuntime, makeResolver(new Error("offline")));
-    networkController.register(makeField("email", "a").handle);
+    networkController.register(makeField("email", { type: ProfileAttributeType.STRING, value: "a" }).handle);
     await networkController.submit();
     expect(networkRuntime.showFormMessage).toHaveBeenCalledWith("Réseau indisponible", "error");
 
     const submitRuntime = makeRuntime();
     const submitController = new MessageFormController(message, SUBMIT_REF, submitRuntime, makeResolver({ kind: "none" }));
-    submitController.register(makeField("email", "a").handle);
+    submitController.register(makeField("email", { type: ProfileAttributeType.STRING, value: "a" }).handle);
     await submitController.submit();
     expect(submitRuntime.showFormMessage).toHaveBeenCalledWith("Erreur générique", "error");
   });
@@ -364,7 +442,7 @@ describe("MessageFormController submit", () => {
     let resolveSubmit: (outcome: ActionOutcome) => void = () => undefined;
     const resolve = jest.fn(() => new Promise<ActionOutcome>(settle => (resolveSubmit = settle)));
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     const first = controller.submit();
     const second = controller.submit();
@@ -377,7 +455,7 @@ describe("MessageFormController submit", () => {
   test("submit is a no-op when there is no submit action ref", async () => {
     const resolve = makeResolver();
     const controller = new MessageFormController(makeMessage(), undefined, makeRuntime(), resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     await controller.submit();
 
@@ -387,8 +465,8 @@ describe("MessageFormController submit", () => {
   test("submit on an invalid form does not post and focuses the first invalid field", async () => {
     const resolve = makeResolver();
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), resolve);
-    const first = makeField("first", "", "This field is required.");
-    const second = makeField("second", "", "This field is required.");
+    const first = makeField("first", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
+    const second = makeField("second", { type: ProfileAttributeType.STRING, value: "" }, "This field is required.");
     controller.register(first.handle);
     controller.register(second.handle);
 
@@ -406,7 +484,7 @@ describe("MessageFormController submit", () => {
     let resolveSubmit: (outcome: ActionOutcome) => void = () => undefined;
     const resolve = jest.fn(() => new Promise<ActionOutcome>(r => (resolveSubmit = r)));
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     const pending = controller.submit();
     expect(runtime.setSubmitting).toHaveBeenCalledWith(true);
@@ -425,7 +503,7 @@ describe("MessageFormController submit", () => {
     let rejectSubmit: (reason: Error) => void = () => undefined;
     const resolve = jest.fn(() => new Promise<ActionOutcome>((_, r) => (rejectSubmit = r)));
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, runtime, resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     const pending = controller.submit();
     controller.dispose();
@@ -439,7 +517,7 @@ describe("MessageFormController submit", () => {
   test("a disposed controller refuses a new submit", async () => {
     const resolve = makeResolver();
     const controller = new MessageFormController(makeMessage(), SUBMIT_REF, makeRuntime(), resolve);
-    controller.register(makeField("email", "user@example.com").handle);
+    controller.register(makeField("email", { type: ProfileAttributeType.STRING, value: "user@example.com" }).handle);
 
     controller.dispose();
     await controller.submit();

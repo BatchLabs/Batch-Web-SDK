@@ -63,7 +63,15 @@
     {
       // Test files were never linted before; the jest plugin is scoped to them so
       // its rules never fire on shipping code.
-      "files": ["**/*.test.ts", "**/*.test.mjs", "**/__tests__/**", "**/__mocks__/**", "**/test-utils/**", "jest.setup.js"],
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.mjs",
+        "**/*.test.mts",
+        "**/__tests__/**",
+        "**/__mocks__/**",
+        "**/test-utils/**",
+        "jest.setup.js"
+      ],
       "plugins": ["jest"],
       "env": { "jest": true },
       "rules": {
@@ -114,6 +122,25 @@
         "typescript/no-explicit-any": "off",
         "typescript/explicit-function-return-type": "off"
       }
+    },
+    {
+      // The import direction is one-way: tests read shipping code, never the reverse.
+      // A test helper reached from `src/lib/**` would ride into the webpack bundles.
+      "files": ["src/**/*.ts"],
+      "excludeFiles": ["**/*.test.ts", "**/__tests__/**", "**/__mocks__/**", "**/test-utils/**"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/test-utils/**", "**/__tests__/**", "**/__mocks__/**", "**/*.test"],
+                "message": "Shipping code cannot import test code: webpack would bundle it."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   // The lint scripts pass no path: this list plus .gitignore select the tree.
@@ -134,7 +161,6 @@
     // loader is a verbatim copy of the public one.
     "tests-e2e/__serving__/static/**",
     "demo-staging/**",
-    "debug-extension/**",
     "public_repo_skeleton/**",
     "playwright-report/**",
     "test-results/**",

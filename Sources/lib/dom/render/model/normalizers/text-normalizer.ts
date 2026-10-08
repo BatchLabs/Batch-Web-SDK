@@ -7,7 +7,7 @@ import {
   DEFAULT_TEXT_ALIGN,
   DEFAULT_TEXT_MAX_LINES,
 } from "../normalizer-defaults";
-import { MessageLabelPayload } from "../types";
+import { MessageComponentTypeValue, MessageLabelPayload } from "../types";
 
 export function normalizeLabel(component: MessageLabelPayload): MessageLabelModel {
   const textConfiguration = normalizeTextConfiguration(
@@ -25,11 +25,11 @@ export function normalizeLabel(component: MessageLabelPayload): MessageLabelMode
       maxLines: DEFAULT_TEXT_MAX_LINES,
       fontSize: DEFAULT_FONT_SIZE,
     },
-    "text"
+    MessageComponentTypeValue.Text
   );
 
   return {
-    type: "text",
+    type: MessageComponentTypeValue.Text,
     id: component.id,
     hideOn: normalizeHideOn(component.hideOn, "text.hideOn"),
     configuration: {

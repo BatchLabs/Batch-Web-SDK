@@ -11,9 +11,10 @@ import {
   trackEventAction,
   userTagAction,
 } from "com.batch.shared/actions/builtins";
-import { RenderEventAttributes } from "com.batch.shared/actions/contracts";
+import { ActionContext, RenderEventAttributes } from "com.batch.shared/actions/contracts";
 import { MessageActionExecutor } from "com.batch.shared/actions/executor";
 import { Log } from "com.batch.shared/logger";
+import { ProfileAttributeType } from "com.batch.shared/profile/profile-data-types";
 
 interface SdkGatewayStub {
   trackEvent(name: string, attributes?: RenderEventAttributes): Promise<void>;
@@ -204,7 +205,7 @@ describe("MessageActionExecutor", () => {
 
     await executor.execute(
       { action: "batch.form.submit", args: { e: "form_submitted", a: { source: "payload" } } },
-      { formFields: { email: "user@example.com" } }
+      { formFields: { email: { type: ProfileAttributeType.STRING, value: "user@example.com" } } }
     );
 
     expect(trackEventSpy).toHaveBeenCalledWith("form_submitted", { source: "payload" });
@@ -358,7 +359,7 @@ describe("MessageActionExecutor", () => {
       seen.push(context);
       return { kind: "none" };
     });
-    const context = { formFields: { email: "a@b.c" } };
+    const context: ActionContext = { formFields: { email: { type: ProfileAttributeType.STRING, value: "a@b.c" } } };
 
     await executor.execute(
       {

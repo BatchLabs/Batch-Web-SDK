@@ -14,11 +14,11 @@ import {
   DEFAULT_FALLBACK_COLOR,
   DEFAULT_HORIZONTAL_ALIGN,
 } from "../normalizer-defaults";
-import { MessageDividerPayload } from "../types";
+import { MessageComponentTypeValue, MessageDividerPayload } from "../types";
 
 export function normalizeDivider(component: MessageDividerPayload): MessageDividerModel {
   return {
-    type: "divider",
+    type: MessageComponentTypeValue.Divider,
     hideOn: normalizeHideOn(component.hideOn, "divider.hideOn"),
     configuration: {
       style: {
